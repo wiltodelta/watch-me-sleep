@@ -75,121 +75,25 @@ enum TimerMode {
 }
 
 struct CommonSettingsView: View {
-    @StateObject private var launchManager = LaunchAtLoginManager.shared
-    @StateObject private var updateChecker = UpdateChecker.shared
-
-    private var appVersion: String {
-        if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
-            return version
-        }
-        return "dev"
-    }
-
     var body: some View {
-        VStack(spacing: 8) {
-            AutoActivationSettingsView()
-
-            Toggle(isOn: $launchManager.isEnabled) {
-                Text("Launch at Login")
-                    .font(.system(size: 12))
+        HStack(spacing: 16) {
+            Button {
+                openAppSettings()
+            } label: {
+                Label("Settings", systemImage: "gearshape")
             }
-            .toggleStyle(.checkbox)
-            .controlSize(.small)
 
-            Button(action: {
-                updateChecker.checkForUpdates(showNoUpdateAlert: true)
-            }) {
-                if updateChecker.isCheckingForUpdates {
-                    HStack(spacing: 4) {
-                        ProgressView()
-                            .scaleEffect(0.5)
-                            .frame(width: 10, height: 10)
-                        Text("Checking...")
-                    }
-                } else {
-                    Text("Check for Updates... (v\(appVersion))")
-                }
-            }
-            .buttonStyle(.plain)
-            .controlSize(.small)
-            .foregroundColor(.secondary)
-            .font(.system(size: 11))
-            .disabled(updateChecker.isCheckingForUpdates)
+            Spacer()
 
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }
-            .buttonStyle(.plain)
-            .controlSize(.small)
-            .foregroundColor(.secondary)
-            .font(.system(size: 11))
         }
+        .buttonStyle(.plain)
+        .foregroundColor(.secondary)
+        .font(.callout)
         .padding(.horizontal, 20)
-        .padding(.vertical, 16)
-    }
-}
-
-struct AutoActivationSettingsView: View {
-    @StateObject private var manager = AutoActivationManager.shared
-
-    private let hourOptions = [20, 21, 22, 23, 0, 1]
-    private let idleOptions = [10, 15, 20, 30, 45, 60]
-    private let durationOptions: [Double] = [0.5, 1, 1.5, 2, 3]
-
-    var body: some View {
-        VStack(spacing: 6) {
-            Toggle(isOn: $manager.isEnabled) {
-                Text("Auto-start timer when idle at night")
-                    .font(.system(size: 12))
-            }
-            .toggleStyle(.checkbox)
-            .controlSize(.small)
-
-            if manager.isEnabled {
-                HStack(spacing: 8) {
-                    optionMenu(hourLabel(manager.activeAfterHour), options: hourOptions, label: hourLabel) {
-                        manager.activeAfterHour = $0
-                    }
-                    optionMenu("\(manager.idleMinutes)m idle", options: idleOptions, label: { "\($0) min" }) {
-                        manager.idleMinutes = $0
-                    }
-                    optionMenu(durationLabel(manager.timerHours), options: durationOptions, label: durationLabel) {
-                        manager.timerHours = $0
-                    }
-                }
-                .controlSize(.small)
-                .font(.system(size: 11))
-            }
-        }
-    }
-
-    private func optionMenu<T: Hashable>(
-        _ title: String,
-        options: [T],
-        label: @escaping (T) -> String,
-        select: @escaping (T) -> Void
-    ) -> some View {
-        Menu(title) {
-            ForEach(options, id: \.self) { option in
-                Button(label(option)) { select(option) }
-            }
-        }
-    }
-
-    private func hourLabel(_ hour: Int) -> String {
-        "After \(String(format: "%02d:00", hour))"
-    }
-
-    private func durationLabel(_ hours: Double) -> String {
-        if hours < 1 {
-            return "\(Int(hours * 60))m timer"
-        }
-        if hours == floor(hours) {
-            return "\(Int(hours))h timer"
-        }
-        let whole = Int(hours)
-        let minutes = Int((hours - Double(whole)) * 60)
-        return "\(whole)h \(minutes)m timer"
+        .padding(.vertical, 12)
     }
 }
 

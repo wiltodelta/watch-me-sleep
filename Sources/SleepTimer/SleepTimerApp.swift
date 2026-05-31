@@ -6,6 +6,9 @@ struct SleepTimerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
+        // The app is a menu-bar accessory; all UI lives in the status-bar popover
+        // and a settings window the delegate manages. This scene just satisfies the
+        // App requirement.
         Settings {
             EmptyView()
         }
@@ -83,6 +86,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.updateStatusItem()
         }
 
+        // Open the settings window when the popover requests it
+        NotificationCenter.default.addObserver(
+            forName: openSettingsNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.showSettingsWindow()
+        }
+
         updateStatusItem()
 
         // Start watching for idle time to auto-arm the timer at night
@@ -111,6 +123,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private var positionMonitorTimer: Timer?
+    private var settingsWindow: NSWindow?
+
+    @objc private func showSettingsWindow() {
+        if settingsWindow == nil {
+            let hosting = NSHostingController(rootView: SettingsView())
+            let window = NSWindow(contentViewController: hosting)
+            window.title = "Sleep Timer Settings"
+            window.styleMask = [.titled, .closable]
+            window.isReleasedWhenClosed = false
+            window.delegate = self
+            window.center()
+            settingsWindow = window
+        }
+
+        // Become a regular app while settings are open so the window reliably comes
+        // to the front; revert to accessory (no dock icon) when it closes.
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        settingsWindow?.makeKeyAndOrderFront(nil)
+    }
 
     private func startMonitoringStatusBarPosition() {
         stopMonitoringStatusBarPosition()
@@ -171,5 +203,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 extension AppDelegate: NSPopoverDelegate {
     func popoverDidClose(_ notification: Notification) {
         stopMonitoringStatusBarPosition()
+    }
+}
+
+extension AppDelegate: NSWindowDelegate {
+    func windowWillClose(_ notification: Notification) {
+        // When the settings window closes, hide the dock icon again.
+        if notification.object as? NSWindow === settingsWindow {
+            NSApp.setActivationPolicy(.accessory)
+        }
     }
 }

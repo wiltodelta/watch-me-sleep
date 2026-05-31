@@ -15,9 +15,9 @@ public final class AutoActivationManager: ObservableObject {
     @Published public var idleMinutes: Int = 30 { didSet { persist() } }
     @Published public var timerHours: Double = 1.0 { didSet { persist() } }
 
-    /// End of the nightly window (exclusive). Fixed for now; the window runs from
-    /// `activeAfterHour` overnight until this morning hour.
-    public let windowEndHour = 8
+    /// End of the nightly window (exclusive). The window runs from `activeAfterHour`
+    /// overnight until this morning hour.
+    @Published public var windowEndHour: Int = 8 { didSet { persist() } }
 
     // MARK: - Test seams
 
@@ -37,6 +37,7 @@ public final class AutoActivationManager: ObservableObject {
     private enum Key {
         static let enabled = "AutoActivation.enabled"
         static let afterHour = "AutoActivation.afterHour"
+        static let untilHour = "AutoActivation.untilHour"
         static let idleMinutes = "AutoActivation.idleMinutes"
         static let timerHours = "AutoActivation.timerHours"
     }
@@ -133,6 +134,9 @@ public final class AutoActivationManager: ObservableObject {
         if defaults.object(forKey: Key.afterHour) != nil {
             activeAfterHour = defaults.integer(forKey: Key.afterHour)
         }
+        if defaults.object(forKey: Key.untilHour) != nil {
+            windowEndHour = defaults.integer(forKey: Key.untilHour)
+        }
         if defaults.object(forKey: Key.idleMinutes) != nil {
             idleMinutes = defaults.integer(forKey: Key.idleMinutes)
         }
@@ -145,6 +149,7 @@ public final class AutoActivationManager: ObservableObject {
         guard isLoaded else { return }
         defaults.set(isEnabled, forKey: Key.enabled)
         defaults.set(activeAfterHour, forKey: Key.afterHour)
+        defaults.set(windowEndHour, forKey: Key.untilHour)
         defaults.set(idleMinutes, forKey: Key.idleMinutes)
         defaults.set(timerHours, forKey: Key.timerHours)
     }

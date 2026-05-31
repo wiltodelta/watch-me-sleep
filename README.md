@@ -100,8 +100,8 @@ mv "Sleep Timer.app" /Applications/
    - Cancel the timer
 
 ### Auto-Start When Idle
-1. Open the menu bar popover and enable "Auto-start timer when idle at night"
-2. Pick the hour the window opens (the window runs overnight until 8:00), how many idle minutes should pass, and the timer length
+1. Open Settings (the gear in the menu bar popover, or Cmd+,) and enable "Start a timer when the Mac is idle at night"
+2. Pick the window start and end hours, how many idle minutes should pass, and the timer length
 3. When the Mac sits idle past that threshold inside the window, a regular timer arms automatically
 4. It stays out of the way while a timer is already running or while Camera Mode is active
 

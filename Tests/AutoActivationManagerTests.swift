@@ -11,6 +11,7 @@ final class AutoActivationManagerTests: XCTestCase {
         manager.defaults = UserDefaults(suiteName: "AutoActivationTests")!
         manager.isEnabled = true
         manager.activeAfterHour = 22
+        manager.windowEndHour = 8
         manager.idleMinutes = 20
         manager.timerHours = 1.0
         manager.isTimerActive = { false }
