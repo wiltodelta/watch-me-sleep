@@ -11,8 +11,8 @@ public final class AutoActivationManager: ObservableObject {
     // MARK: - User-configurable settings (persisted)
 
     @Published public var isEnabled: Bool = false { didSet { settingsChanged() } }
-    @Published public var activeAfterHour: Int = 22 { didSet { persist() } }
-    @Published public var idleMinutes: Int = 20 { didSet { persist() } }
+    @Published public var activeAfterHour: Int = 21 { didSet { persist() } }
+    @Published public var idleMinutes: Int = 30 { didSet { persist() } }
     @Published public var timerHours: Double = 1.0 { didSet { persist() } }
 
     /// End of the nightly window (exclusive). Fixed for now; the window runs from
