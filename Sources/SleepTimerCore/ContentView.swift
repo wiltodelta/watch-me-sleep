@@ -33,8 +33,8 @@ public struct ContentView: View {
                     CameraModeView()
                 }
             }
-            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: selectedMode)
-            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: timerManager.isTimerActive)
+            .animation(.easeInOut(duration: 0.12), value: selectedMode)
+            .animation(.easeInOut(duration: 0.18), value: timerManager.isTimerActive)
 
             Divider()
 
@@ -326,53 +326,33 @@ struct CameraModeView: View {
 
     
     var body: some View {
-        ZStack {
-            // Subtle background gradient
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.accentColor.opacity(0.02),
-                    Color.clear
-                ]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-
-            VStack(spacing: 16) {
-                introSection
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-                statusCard
-                    timerCard
-                    Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 16)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        VStack(spacing: 12) {
+            introSection
+            statusCard
+            timerCard
+            Spacer(minLength: 0)
         }
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: sleepManager.isUserAsleep)
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: timerManager.isTimerActive)
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .animation(.easeInOut(duration: 0.18), value: sleepManager.isUserAsleep)
+        .animation(.easeInOut(duration: 0.18), value: timerManager.isTimerActive)
     }
 
     private var introSection: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 6) {
             Text("Camera Sleep Mode")
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .font(.headline)
 
             Text("Sleep Timer gently watches for closed eyes and auto-starts a 30-minute timer. Open your eyes for a few seconds to cancel it. It will also auto-sleep after 1.5 hours of tracking.")
-                .font(.system(size: 11))
+                .font(.caption)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
-                .lineLimit(nil)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.03), radius: 4, x: 0, y: 2)
-        )
+        .frame(maxWidth: .infinity)
+        .padding(.bottom, 4)
     }
 
     private var statusCard: some View {
@@ -413,42 +393,7 @@ struct CameraModeView: View {
                 .controlSize(.small)
             }
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(.ultraThinMaterial)
-
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color.white.opacity(0.08),
-                                Color.white.opacity(0.02)
-                            ]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            }
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        gradient: Gradient(colors: [
-                            Color.white.opacity(0.2),
-                            Color.white.opacity(0.05)
-                        ]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .shadow(color: .black.opacity(0.08), radius: 14, x: 0, y: 6)
-        .shadow(color: .black.opacity(0.04), radius: 3, x: 0, y: 1)
+        .card()
     }
 
     private var timerCard: some View {
@@ -469,42 +414,7 @@ struct CameraModeView: View {
             }
 
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(.ultraThinMaterial)
-
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color.white.opacity(0.08),
-                                Color.white.opacity(0.02)
-                            ]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            }
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        gradient: Gradient(colors: [
-                            Color.white.opacity(0.2),
-                            Color.white.opacity(0.05)
-                        ]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-        )
-        .shadow(color: .black.opacity(0.08), radius: 14, x: 0, y: 6)
-        .shadow(color: .black.opacity(0.04), radius: 3, x: 0, y: 1)
+        .card()
     }
 
     private func statusRow(icon: String, color: Color, title: String, detail: String) -> some View {
@@ -525,33 +435,30 @@ struct CameraModeView: View {
         }
     }
 
-    private var statusTitle: String {
-        if !sleepManager.isCameraAuthorized {
-            return "Camera tracking unavailable"
-        }
-        if !sleepManager.isSessionRunning {
-            return "Camera tracking paused"
-        }
-        if sleepManager.isUserAsleep {
-            return "Camera tracking"
-        }
-        return "Camera tracking"
-    }
-
-    private var statusColor: Color {
-        if !sleepManager.isCameraAuthorized {
-            return .red
-        }
-        if !sleepManager.isSessionRunning {
-            return .orange
-        }
-        let standardGreen = Color(red: 0.152, green: 0.772, blue: 0.357)
-        return sleepManager.isUserAsleep ? standardGreen : standardGreen.opacity(0.8)
-    }
-
     private func formatTime(_ time: TimeInterval) -> String {
         let minutes = Int(time) / 60
         let seconds = Int(time) % 60
         return String(format: "%02d:%02d", minutes, seconds)
     }
+}
+
+/// Restrained, system-style card used to group content in the popover.
+private struct Card: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.primary.opacity(0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+            )
+    }
+}
+
+private extension View {
+    func card() -> some View { modifier(Card()) }
 }

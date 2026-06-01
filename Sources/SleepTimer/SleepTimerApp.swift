@@ -65,6 +65,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         popover = NSPopover()
         popover.contentSize = NSSize(width: 360, height: 420)
         popover.behavior = .transient
+        popover.animates = false // instant show/resize so mode switches feel snappy
         popover.contentViewController = NSHostingController(rootView: ContentView())
         popover.delegate = self
 

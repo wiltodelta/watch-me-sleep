@@ -5,7 +5,7 @@ You are a **principal Swift/macOS engineer** maintaining a menu bar app that aut
 ## How to run
 
 - `./run.sh` — build and run for development
-- `./create-app.sh` — create standalone .app bundle
+- `./create-app.sh` — create standalone .app bundle (assembles the bundle, then ad-hoc re-signs it; `swift build` signs only the executable, so adding Info.plist/Resources afterwards invalidates the signature and the bundle must be re-signed or Gatekeeper rejects Finder launches)
 
 ## Test and lint
 

@@ -96,6 +96,12 @@ EOF
 
 echo "✅ App bundle created successfully: $APP_DIR"
 
+# Ad-hoc re-sign the assembled bundle. swift build signs only the executable;
+# adding Info.plist and Resources afterwards invalidates that signature, so the
+# bundle needs a fresh signature with matching CodeResources for Gatekeeper/Finder.
+echo "🔏 Ad-hoc signing the bundle..."
+codesign --force --deep --sign - "$APP_DIR"
+
 # Remove quarantine attribute if running locally (not in CI)
 if [ -z "$CI" ]; then
     echo "🔓 Removing quarantine attribute..."
