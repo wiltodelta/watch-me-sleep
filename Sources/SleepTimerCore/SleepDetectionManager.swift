@@ -10,7 +10,12 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
     @Published public var isCameraAuthorized: Bool = false
     @Published public var isSessionRunning: Bool = false
     @Published public var isUserAsleep: Bool = false
+    @Published public var isFaceDetected: Bool = false
     @Published public var statusMessage: String = "Camera tracking is off."
+
+    // Shadow of isFaceDetected mutated only on the video queue, so we dispatch to
+    // main (to publish) only when the value actually flips, not every frame.
+    private var faceDetectedShadow = false
 
     private let session = AVCaptureSession()
     private let sessionQueue = DispatchQueue(label: "SleepDetectionManager.SessionQueue")
@@ -59,6 +64,22 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
         // Set tolerance to 25% of window size (~15 seconds at 10 fps for 60-second window)
         self.maxMissedFrames = Int(Double(windowSize) * 0.25)
         super.init()
+    }
+
+    /// A preview layer bound to the running capture session, for showing a live
+    /// feed in the UI. Mirrored like a selfie view.
+    public func makePreviewLayer() -> AVCaptureVideoPreviewLayer {
+        let layer = AVCaptureVideoPreviewLayer(session: session)
+        layer.videoGravity = .resizeAspectFill
+        return layer
+    }
+
+    private func setFaceDetected(_ detected: Bool) {
+        guard faceDetectedShadow != detected else { return }
+        faceDetectedShadow = detected
+        DispatchQueue.main.async {
+            self.isFaceDetected = detected
+        }
     }
 
     public func setCameraModeEnabled(_ enabled: Bool) {
@@ -228,9 +249,11 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
         missedFramesCount = 0
         currentEyeState = false
         consecutiveClosedFrames = 0
+        faceDetectedShadow = false
         lastUIUpdateTime = nil
         DispatchQueue.main.async {
             self.isUserAsleep = false
+            self.isFaceDetected = false
         }
     }
 
@@ -334,6 +357,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
                     self.closedFramesCount = 0 // Reset cached count when clearing window
                     self.currentEyeState = false
                     self.consecutiveClosedFrames = 0 // Reset so a lost face can't carry over into early sleep detection
+                    self.setFaceDetected(false)
                     DispatchQueue.main.async {
                         if self.isSessionRunning {
                             self.statusMessage = "Looking for your face..."
@@ -345,6 +369,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
 
             // Face and eyes found; reset missed frames counter
             self.missedFramesCount = 0
+            self.setFaceDetected(true)
 
             let leftRatio = Self.eyeAspectRatio(for: leftEye)
             let rightRatio = Self.eyeAspectRatio(for: rightEye)

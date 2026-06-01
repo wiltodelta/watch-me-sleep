@@ -10,6 +10,7 @@ A menu bar application for macOS that allows you to set a sleep timer to automat
   <img src="screenshots/manual-timer.png" alt="Sleep Timer - Manual Mode" width="280">
   <img src="screenshots/active-manual-timer.png" alt="Sleep Timer - Active Timer" width="280">
   <img src="screenshots/camera-mode.png" alt="Sleep Timer - Camera Mode" width="280">
+  <img src="screenshots/settings.png" alt="Sleep Timer - Settings" width="280">
 </p>
 
 ## Features

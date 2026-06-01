@@ -59,6 +59,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             button.action = #selector(togglePopover)
             button.target = self
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
 
         // Create popover
@@ -108,6 +109,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func togglePopover() {
+        // Right-click shows a quick-action menu instead of the popover.
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            showQuickMenu()
+            return
+        }
+
         if let button = statusItem.button {
             if popover.isShown {
                 stopMonitoringStatusBarPosition()
@@ -121,6 +128,54 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 startMonitoringStatusBarPosition()
             }
         }
+    }
+
+    private func showQuickMenu() {
+        guard let button = statusItem.button else { return }
+
+        let menu = NSMenu()
+
+        if timerManager.isTimerActive {
+            let stop = NSMenuItem(title: "Stop Timer", action: #selector(quickStopTimer), keyEquivalent: "")
+            stop.target = self
+            menu.addItem(stop)
+        } else {
+            let startItem = NSMenuItem(title: "Start Timer", action: nil, keyEquivalent: "")
+            let submenu = NSMenu()
+            for (title, hours) in [("15 Minutes", 0.25), ("30 Minutes", 0.5), ("1 Hour", 1.0), ("1.5 Hours", 1.5), ("2 Hours", 2.0)] {
+                let item = NSMenuItem(title: title, action: #selector(quickStartTimer(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = hours
+                submenu.addItem(item)
+            }
+            menu.addItem(startItem)
+            menu.setSubmenu(submenu, for: startItem)
+        }
+
+        menu.addItem(.separator())
+
+        let settings = NSMenuItem(title: "Settings…", action: #selector(showSettingsWindow), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
+
+        let quit = NSMenuItem(title: "Quit Sleep Timer", action: #selector(quitApp), keyEquivalent: "q")
+        quit.target = self
+        menu.addItem(quit)
+
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
+    }
+
+    @objc private func quickStartTimer(_ sender: NSMenuItem) {
+        guard let hours = sender.representedObject as? Double else { return }
+        timerManager.startTimer(hours: hours)
+    }
+
+    @objc private func quickStopTimer() {
+        timerManager.stopTimer()
+    }
+
+    @objc private func quitApp() {
+        NSApplication.shared.terminate(nil)
     }
 
     private var positionMonitorTimer: Timer?
@@ -197,7 +252,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
             button.attributedTitle = NSAttributedString(string: titleText, attributes: [.font: font])
             button.imagePosition = .imageLeft
+            button.toolTip = statusTooltip()
         }
+    }
+
+    private func statusTooltip() -> String {
+        if timerManager.isTimerActive {
+            return "Sleep Timer running"
+        }
+        if autoActivation.isEnabled {
+            return String(format: "Auto-start armed: timer when idle after %02d:00", autoActivation.activeAfterHour)
+        }
+        return "Sleep Timer"
     }
 }
 

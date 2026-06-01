@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import AVFoundation
 
 public struct ContentView: View {
     @StateObject private var timerManager = TimerManager.shared
@@ -328,6 +329,7 @@ struct CameraModeView: View {
     var body: some View {
         VStack(spacing: 12) {
             introSection
+            previewSection
             statusCard
             timerCard
             Spacer(minLength: 0)
@@ -338,6 +340,30 @@ struct CameraModeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(.easeInOut(duration: 0.18), value: sleepManager.isUserAsleep)
         .animation(.easeInOut(duration: 0.18), value: timerManager.isTimerActive)
+    }
+
+    @ViewBuilder private var previewSection: some View {
+        if sleepManager.isCameraAuthorized {
+            ZStack {
+                CameraPreview()
+                if !sleepManager.isSessionRunning {
+                    Color.primary.opacity(0.06)
+                    ProgressView().controlSize(.small)
+                }
+            }
+            .frame(height: 140)
+            .frame(maxWidth: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(
+                        sleepManager.isFaceDetected ? Color.green : Color.primary.opacity(0.12),
+                        lineWidth: sleepManager.isFaceDetected ? 2 : 1
+                    )
+            )
+            .animation(.easeInOut(duration: 0.2), value: sleepManager.isFaceDetected)
+            .animation(.easeInOut(duration: 0.2), value: sleepManager.isSessionRunning)
+        }
     }
 
     private var introSection: some View {
@@ -362,7 +388,7 @@ struct CameraModeView: View {
 
             statusRow(
                 icon: sleepManager.isCameraAuthorized ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
-                color: sleepManager.isCameraAuthorized ? Color(red: 0.152, green: 0.772, blue: 0.357) : .orange,
+                color: sleepManager.isCameraAuthorized ? Color.green : .orange,
                 title: "Camera access",
                 detail: sleepManager.isCameraAuthorized
                     ? "Permission granted."
@@ -378,7 +404,7 @@ struct CameraModeView: View {
 
             statusRow(
                 icon: sleepManager.isUserAsleep ? "moon.zzz.fill" : "eye",
-                color: sleepManager.isUserAsleep ? Color(red: 0.152, green: 0.772, blue: 0.357) : .secondary,
+                color: sleepManager.isUserAsleep ? Color.green : .secondary,
                 title: "Sleep detection",
                 detail: sleepManager.statusMessage
             )
@@ -440,6 +466,34 @@ struct CameraModeView: View {
         let seconds = Int(time) % 60
         return String(format: "%02d:%02d", minutes, seconds)
     }
+}
+
+/// Live camera feed hosted from the capture session's preview layer.
+final class PreviewHostView: NSView {
+    let previewLayer = SleepDetectionManager.shared.makePreviewLayer()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        layer = previewLayer
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layout() {
+        super.layout()
+        previewLayer.frame = bounds
+    }
+}
+
+struct CameraPreview: NSViewRepresentable {
+    func makeNSView(context: Context) -> PreviewHostView {
+        PreviewHostView(frame: .zero)
+    }
+
+    func updateNSView(_ nsView: PreviewHostView, context: Context) {}
 }
 
 /// Restrained, system-style card used to group content in the popover.
