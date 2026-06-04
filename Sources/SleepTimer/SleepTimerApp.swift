@@ -72,7 +72,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Update icon when timer changes
         NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("TimerUpdated"),
+            forName: .timerUpdated,
             object: nil,
             queue: .main
         ) { [weak self] _ in
@@ -81,7 +81,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Update icon when camera mode changes
         NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("CameraModeChanged"),
+            forName: .cameraModeChanged,
             object: nil,
             queue: .main
         ) { [weak self] _ in
@@ -90,7 +90,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Open the settings window when the popover requests it
         NotificationCenter.default.addObserver(
-            forName: openSettingsNotification,
+            forName: .openSettings,
             object: nil,
             queue: .main
         ) { [weak self] _ in
@@ -142,7 +142,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             let startItem = NSMenuItem(title: "Start Timer", action: nil, keyEquivalent: "")
             let submenu = NSMenu()
-            for (title, hours) in [("15 Minutes", 0.25), ("30 Minutes", 0.5), ("1 Hour", 1.0), ("1.5 Hours", 1.5), ("2 Hours", 2.0)] {
+            let presets: [(String, Double)] = [
+                ("15 Minutes", 0.25), ("30 Minutes", 0.5), ("1 Hour", 1.0), ("1.5 Hours", 1.5), ("2 Hours", 2.0)
+            ]
+            for (title, hours) in presets {
                 let item = NSMenuItem(title: title, action: #selector(quickStartTimer(_:)), keyEquivalent: "")
                 item.target = self
                 item.representedObject = hours

@@ -30,14 +30,11 @@ public class LaunchAtLoginManager: ObservableObject {
         if #available(macOS 13.0, *) {
             let service = SMAppService.mainApp
             do {
-                if service.status == .enabled {
-                    print("Already enabled")
-                } else {
+                if service.status != .enabled {
                     try service.register()
-                    print("Launch at login enabled")
                 }
             } catch {
-                print("Failed to enable launch at login: \(error)")
+                NSLog("Failed to enable launch at login: \(error.localizedDescription)")
             }
         }
     }
@@ -48,10 +45,9 @@ public class LaunchAtLoginManager: ObservableObject {
             do {
                 if service.status == .enabled {
                     try service.unregister()
-                    print("Launch at login disabled")
                 }
             } catch {
-                print("Failed to disable launch at login: \(error)")
+                NSLog("Failed to disable launch at login: \(error.localizedDescription)")
             }
         }
     }

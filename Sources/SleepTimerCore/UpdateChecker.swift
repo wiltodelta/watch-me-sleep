@@ -44,7 +44,7 @@ public class UpdateChecker: ObservableObject {
             }
 
             if let error = error {
-                print("Update check failed: \(error)")
+                NSLog("Update check failed: \(error.localizedDescription)")
                 if showNoUpdateAlert {
                     self.showErrorAlert()
                 }
@@ -62,7 +62,7 @@ public class UpdateChecker: ObservableObject {
                 let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
                 self.handleRelease(release, showNoUpdateAlert: showNoUpdateAlert)
             } catch {
-                print("Failed to parse release info: \(error)")
+                NSLog("Failed to parse release info: \(error.localizedDescription)")
                 if showNoUpdateAlert {
                     self.showErrorAlert()
                 }
@@ -94,9 +94,9 @@ public class UpdateChecker: ObservableObject {
         let v1Components = version1.split(separator: ".").compactMap { Int($0) }
         let v2Components = version2.split(separator: ".").compactMap { Int($0) }
 
-        for i in 0..<max(v1Components.count, v2Components.count) {
-            let v1Value = i < v1Components.count ? v1Components[i] : 0
-            let v2Value = i < v2Components.count ? v2Components[i] : 0
+        for index in 0..<max(v1Components.count, v2Components.count) {
+            let v1Value = index < v1Components.count ? v1Components[index] : 0
+            let v2Value = index < v2Components.count ? v2Components[index] : 0
 
             if v1Value > v2Value {
                 return true
@@ -111,7 +111,8 @@ public class UpdateChecker: ObservableObject {
     private func showUpdateAlert(version: String, url: String, releaseNotes: String?) {
         let alert = NSAlert()
         alert.messageText = "Update Available"
-        alert.informativeText = "Sleep Timer \(version) is now available. You have \(currentVersion).\n\nWould you like to download it?"
+        alert.informativeText = "Sleep Timer \(version) is now available. You have \(currentVersion)."
+            + "\n\nWould you like to download it?"
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Download")
         alert.addButton(withTitle: "Skip This Version")

@@ -106,7 +106,8 @@ public final class AutoActivationManager: ObservableObject {
     /// property (reported in nanoseconds). Requires no special permission.
     static func systemIdleSeconds() -> TimeInterval {
         var iterator: io_iterator_t = 0
-        guard IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching("IOHIDSystem"), &iterator) == KERN_SUCCESS else {
+        let matching = IOServiceMatching("IOHIDSystem")
+        guard IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator) == KERN_SUCCESS else {
             return 0
         }
         defer { IOObjectRelease(iterator) }

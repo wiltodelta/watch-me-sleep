@@ -92,7 +92,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
                     self.statusMessage = "Starting camera..."
                 }
             }
-            
+
             // Perform setup on a background queue to prevent main thread blocking
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 self?.requestAuthorizationAndStart()
@@ -150,7 +150,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
             if self.session.isRunning {
                 return
             }
-            
+
             DispatchQueue.main.async {
                 self.statusMessage = "Configuring camera..."
             }
@@ -305,7 +305,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
                     TimerManager.shared.startTimer(hours: 0.5)
                 }
                 // Notify status bar to update icon
-                NotificationCenter.default.post(name: NSNotification.Name("CameraModeChanged"), object: nil)
+                NotificationCenter.default.post(name: .cameraModeChanged, object: nil)
             }
         }
 
@@ -319,7 +319,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
                     TimerManager.shared.stopTimer()
                 }
                 // Notify status bar to update icon
-                NotificationCenter.default.post(name: NSNotification.Name("CameraModeChanged"), object: nil)
+                NotificationCenter.default.post(name: .cameraModeChanged, object: nil)
             }
         }
     }
@@ -371,8 +371,8 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
             self.missedFramesCount = 0
             self.setFaceDetected(true)
 
-            let leftRatio = Self.eyeAspectRatio(for: leftEye)
-            let rightRatio = Self.eyeAspectRatio(for: rightEye)
+            let leftRatio = EyeAspectRatio.ratio(for: leftEye)
+            let rightRatio = EyeAspectRatio.ratio(for: rightEye)
 
             let averageRatio = (leftRatio + rightRatio) / 2.0
 
@@ -397,7 +397,8 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
 
             // Update status message with throttling to reduce UI updates
             let now = Date()
-            let shouldUpdateUI = self.lastUIUpdateTime.map { now.timeIntervalSince($0) >= self.uiUpdateInterval } ?? true
+            let shouldUpdateUI = self.lastUIUpdateTime
+                .map { now.timeIntervalSince($0) >= self.uiUpdateInterval } ?? true
 
             if shouldUpdateUI {
                 self.lastUIUpdateTime = now
@@ -444,124 +445,15 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
         }
     }
 
-    public static func eyeAspectRatio(for region: VNFaceLandmarkRegion2D) -> Double {
-        let points = region.normalizedPoints
-
-        // Vision can return different numbers of points depending on the model and device
-        // We'll handle the most common cases with direct indexing
-
-        // Helper function to calculate Euclidean distance
-        func distance(_ a: CGPoint, _ b: CGPoint) -> CGFloat {
-            let dx = a.x - b.x
-            let dy = a.y - b.y
-            return sqrt(dx * dx + dy * dy)
-        }
-
-        // Try direct indexing for known point counts
-        if points.count == 8 {
-            // 8-point contour (clockwise from outer corner)
-            let p1 = points[0]  // Outer corner
-            let p4 = points[3]  // Inner corner
-            let p2 = points[1]  // Top outer
-            let p6 = points[5]  // Bottom outer
-            let p3 = points[2]  // Top inner
-            let p5 = points[4]  // Bottom inner
-
-            let verticalDist1 = distance(p2, p6)
-            let verticalDist2 = distance(p3, p5)
-            let horizontalDist = distance(p1, p4)
-
-            guard horizontalDist > 0 else { return 0.0 }
-            return Double((verticalDist1 + verticalDist2) / (2.0 * horizontalDist))
-        }
-
-        if points.count == 6 {
-            // 6-point contour layout (based on actual Vision output):
-            // 0: outer corner
-            // 1: top eyelid (outer side)
-            // 2: top eyelid (inner side)
-            // 3: inner corner
-            // 4: bottom eyelid (inner side)
-            // 5: bottom eyelid (outer side)
-
-            let p1 = points[0]  // Outer corner
-            let p4 = points[3]  // Inner corner
-            let p2 = points[1]  // Top outer
-            let p6 = points[5]  // Bottom outer (NOT 4!)
-            let p3 = points[2]  // Top inner
-            let p5 = points[4]  // Bottom inner (NOT 5!)
-
-            // Correct vertical distances:
-            // - Outer side: top[1] to bottom[5]
-            // - Inner side: top[2] to bottom[4]
-            let verticalDist1 = distance(p2, p6)  // points[1] to points[5]
-            let verticalDist2 = distance(p3, p5)  // points[2] to points[4]
-            let horizontalDist = distance(p1, p4)  // points[0] to points[3]
-
-            guard horizontalDist > 0 else { return 0.0 }
-            return Double((verticalDist1 + verticalDist2) / (2.0 * horizontalDist))
-        }
-
-        if points.count == 12 {
-            // 12-point detailed contour (use specific indices for classic 6 points)
-            let p1 = points[0]   // Outer corner
-            let p4 = points[6]   // Inner corner
-            let p2 = points[2]   // Top outer
-            let p6 = points[10]  // Bottom outer
-            let p3 = points[4]   // Top inner
-            let p5 = points[8]   // Bottom inner
-
-            let verticalDist1 = distance(p2, p6)
-            let verticalDist2 = distance(p3, p5)
-            let horizontalDist = distance(p1, p4)
-
-            guard horizontalDist > 0 else { return 0.0 }
-            return Double((verticalDist1 + verticalDist2) / (2.0 * horizontalDist))
-        }
-
-        // Fallback: geometric approach for non-standard point counts
-        guard points.count >= 6 else {
-            return 0.0
-        }
-
-        // Find horizontal extremes (corners of the eye)
-        let p1 = points.min(by: { $0.x < $1.x }) ?? points[0]  // Leftmost
-        let p4 = points.max(by: { $0.x < $1.x }) ?? points[0]  // Rightmost
-
-        // Find center X coordinate
-        let centerX = (p1.x + p4.x) / 2.0
-
-        // Split points into left and right halves
-        let leftHalf = points.filter { $0.x < centerX }
-        let rightHalf = points.filter { $0.x >= centerX }
-
-        // Sort by Y to find top (higher Y in Vision) and bottom (lower Y)
-        let leftTop = leftHalf.max(by: { $0.y < $1.y }) ?? p1      // p2 area
-        let leftBottom = leftHalf.min(by: { $0.y < $1.y }) ?? p1   // p6 area
-        let rightTop = rightHalf.max(by: { $0.y < $1.y }) ?? p4    // p3 area
-        let rightBottom = rightHalf.min(by: { $0.y < $1.y }) ?? p4 // p5 area
-
-        // Calculate distances for EAR formula
-        let verticalDist1 = distance(leftTop, leftBottom)  // ||p2 - p6||
-        let verticalDist2 = distance(rightTop, rightBottom) // ||p3 - p5||
-        let horizontalDist = distance(p1, p4) // ||p1 - p4||
-
-        guard horizontalDist > 0 else {
-            return 0.0
-        }
-
-        // Classic EAR formula
-        let ear = (verticalDist1 + verticalDist2) / (2.0 * horizontalDist)
-
-        return Double(ear)
-    }
-
     // MARK: - Activity Check Timer (1.5-hour periodic check)
 
     private func startActivityCheckTimer() {
         stopActivityCheckTimer()
 
-        activityCheckTimer = Timer.scheduledTimer(withTimeInterval: activityCheckInterval, repeats: true) { [weak self] _ in
+        activityCheckTimer = Timer.scheduledTimer(
+            withTimeInterval: activityCheckInterval,
+            repeats: true
+        ) { [weak self] _ in
             self?.showActivityCheckDialog()
         }
     }
@@ -609,8 +501,6 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
                 } else {
                     // Time's up - force sleep
                     timer.invalidate()
-
-                    NSLog("DEBUG: Auto-closing alert after 30 seconds")
                     NSApp.abortModal()
                 }
             }
@@ -639,7 +529,11 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
 }
 
 extension SleepDetectionManager: AVCaptureVideoDataOutputSampleBufferDelegate {
-    public func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+    public func captureOutput(
+        _ output: AVCaptureOutput,
+        didOutput sampleBuffer: CMSampleBuffer,
+        from connection: AVCaptureConnection
+    ) {
         process(sampleBuffer: sampleBuffer)
     }
 }

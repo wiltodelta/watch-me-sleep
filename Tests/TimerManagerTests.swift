@@ -181,7 +181,7 @@ final class TimerManagerTests: XCTestCase {
         let expectation = self.expectation(description: "Timer start notification")
         var observerToken: Any?
         observerToken = NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("TimerUpdated"),
+            forName: .timerUpdated,
             object: nil,
             queue: .main
         ) { _ in
@@ -213,7 +213,7 @@ final class TimerManagerTests: XCTestCase {
         let expectation = self.expectation(description: "Timer stop notification")
         var observerToken: Any?
         observerToken = NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("TimerUpdated"),
+            forName: .timerUpdated,
             object: nil,
             queue: .main
         ) { _ in

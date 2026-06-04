@@ -1,14 +1,9 @@
 import SwiftUI
 import AppKit
 
-/// Name of the notification the popover posts to ask the app delegate to open
-/// the settings window. The SwiftUI `Settings` scene does not open reliably from
-/// a menu-bar `.accessory` app, so the delegate hosts `SettingsView` in its own window.
-public let openSettingsNotification = Notification.Name("OpenSettings")
-
 /// Requests the settings window from anywhere in the UI.
 public func openAppSettings() {
-    NotificationCenter.default.post(name: openSettingsNotification, object: nil)
+    NotificationCenter.default.post(name: .openSettings, object: nil)
 }
 
 /// Preferences window content. Hosts the global settings that used to clutter the

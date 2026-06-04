@@ -62,13 +62,11 @@ public class TimerManager: ObservableObject {
     }
 
     private func putComputerToSleep() {
-        NSLog("DEBUG: putComputerToSleep() called")
-
         // Disable camera mode before sleep (switch back to manual mode)
         SleepDetectionManager.shared.setCameraModeEnabled(false)
 
         // Notify UI to switch back to manual mode
-        NotificationCenter.default.post(name: NSNotification.Name("CameraModeDisabled"), object: nil)
+        NotificationCenter.default.post(name: .cameraModeDisabled, object: nil)
 
         // Use pmset command (most reliable method)
         let task = Process()
@@ -77,9 +75,8 @@ public class TimerManager: ObservableObject {
 
         do {
             try task.run()
-            NSLog("DEBUG: pmset sleepnow executed successfully")
         } catch {
-            NSLog("Failed to put computer to sleep: \(error)")
+            NSLog("Failed to put computer to sleep: \(error.localizedDescription)")
 
             // Show alert to user
             DispatchQueue.main.async {
@@ -99,7 +96,7 @@ public class TimerManager: ObservableObject {
     }
 
     private func notifyTimerUpdated() {
-        NotificationCenter.default.post(name: NSNotification.Name("TimerUpdated"), object: nil)
+        NotificationCenter.default.post(name: .timerUpdated, object: nil)
     }
 
     public func addTime(minutes: Int) {
@@ -112,7 +109,6 @@ public class TimerManager: ObservableObject {
     }
 
     public func sleepNow() {
-        NSLog("DEBUG: sleepNow() called from external trigger")
         putComputerToSleep()
     }
 }
