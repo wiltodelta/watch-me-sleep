@@ -44,6 +44,13 @@ jobs:
         rm -rf ~/Library/Caches/org.swift.swiftpm
         rm -rf ~/Library/Developer/Xcode/DerivedData
     
+    - name: Lint with SwiftLint
+      run: |
+        if ! command -v swiftlint >/dev/null 2>&1; then
+          brew install swiftlint
+        fi
+        swiftlint lint
+
     - name: Run Tests
       run: swift test
 

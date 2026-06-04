@@ -200,6 +200,7 @@ Test coverage includes:
 - **SleepDetectionManager**: Camera mode, state management, initialization
 - **AutoActivationManager**: Nightly window logic, idle-threshold activation decisions
 - **EyeAspectRatio**: EAR math across 6/8/12-point contours, geometric fallback, and degenerate input
+- **UpdateChecker**: Semantic version comparison (numeric ordering, missing components, non-numeric versions)
 
 ### Building from Source
 

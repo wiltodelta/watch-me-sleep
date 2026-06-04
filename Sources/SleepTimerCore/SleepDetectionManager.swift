@@ -26,31 +26,10 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
 
     private let sequenceHandler = VNSequenceRequestHandler()
 
-    // Sliding window parameters
-    private let windowSize = 600 // Number of frames to consider (~60 seconds at 10 fps)
-    private let sleepThresholdPercent = 0.90 // 90% of frames must be closed
-    private let wakeThresholdPercent = 0.20 // 20% or less closed frames means awake
-
-    // Continuous closure detection to distinguish blinks from sleep
-    private let minContinuousClosedFrames = 150 // Must have 150+ consecutive closed frames (~15 sec) for sleep
-    private var consecutiveClosedFrames = 0
-
-    // EAR thresholds with hysteresis to prevent flicker
-    // Based on research: typical open eyes ~0.25-0.35, closed ~0.10-0.20
-    private let earClosedThreshold = 0.20 // Below this = eyes closing
-    private let earOpenThreshold = 0.27   // Above this = eyes opening
-
-    // Frame smoothing to reduce flicker
-    // Tolerance is 25% of window size for consistent behavior
-    private let maxMissedFrames: Int // Calculated in init
-    private var missedFramesCount = 0
-
-    // Sliding window buffer: true = eyes closed, false = eyes open
-    private var eyeStateWindow: [Bool] = []
-    private var closedFramesCount: Int = 0 // Cached count for performance
-
-    // Current eye state for hysteresis
-    private var currentEyeState: Bool = false // false = open, true = closed
+    // Sliding-window sleep/wake decision logic, extracted for unit testing. Owns the
+    // frame window, consecutive-closed counter, hysteresis state, missed-frame
+    // tolerance, and the asleep flag; mutated only on `videoOutputQueue`.
+    private var tracker = EyeStateTracker()
 
     // UI update throttling
     private var lastUIUpdateTime: Date?
@@ -61,8 +40,6 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
     private let activityCheckInterval: TimeInterval = 1.5 * 60 * 60 // 1.5 hours
 
     private override init() {
-        // Set tolerance to 25% of window size (~15 seconds at 10 fps for 60-second window)
-        self.maxMissedFrames = Int(Double(windowSize) * 0.25)
         super.init()
     }
 
@@ -244,11 +221,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
     }
 
     private func resetDetectionState() {
-        eyeStateWindow.removeAll()
-        closedFramesCount = 0
-        missedFramesCount = 0
-        currentEyeState = false
-        consecutiveClosedFrames = 0
+        tracker.reset()
         faceDetectedShadow = false
         lastUIUpdateTime = nil
         DispatchQueue.main.async {
@@ -257,176 +230,14 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
         }
     }
 
-    private func handleEyeState(closed: Bool) {
-        // Track consecutive closed frames to distinguish blinks from sleep
-        if closed {
-            consecutiveClosedFrames += 1
-        } else {
-            consecutiveClosedFrames = 0
-        }
-
-        // Update cached count when removing old value
-        let removedValue: Bool?
-        if eyeStateWindow.count >= windowSize {
-            removedValue = eyeStateWindow.first
-            eyeStateWindow.removeFirst()
-        } else {
-            removedValue = nil
-        }
-
-        // Add current frame state to sliding window
-        eyeStateWindow.append(closed)
-
-        // Update cached closed frames count efficiently
-        if let removed = removedValue, removed {
-            closedFramesCount -= 1 // Removed a closed frame
-        }
-        if closed {
-            closedFramesCount += 1 // Added a closed frame
-        }
-
-        // Calculate percentage using cached count
-        let closedPercentage = eyeStateWindow.isEmpty ? 0.0 : Double(closedFramesCount) / Double(eyeStateWindow.count)
-
-        // Check for sleep condition:
-        // Option 1: Window is full AND meets both criteria (percentage + consecutive)
-        // Option 2: Enough consecutive frames even if window not full yet (early detection)
-        let windowFull = eyeStateWindow.count >= windowSize
-        let hasEnoughConsecutive = consecutiveClosedFrames >= minContinuousClosedFrames
-        let hasHighPercentage = closedPercentage >= sleepThresholdPercent
-
-        let shouldTriggerSleep = !isUserAsleep && hasEnoughConsecutive && (hasHighPercentage || !windowFull)
-
-        if shouldTriggerSleep {
-            DispatchQueue.main.async {
-                self.isUserAsleep = true
-                self.statusMessage = "Sleep detected. Starting 30-minute timer."
-                if !TimerManager.shared.isTimerActive {
-                    TimerManager.shared.startTimer(hours: 0.5)
-                }
-                // Notify status bar to update icon
-                NotificationCenter.default.post(name: .cameraModeChanged, object: nil)
-            }
-        }
-
-        // Check for wake condition (low percentage of closed frames)
-        // Only check if window has enough data
-        if isUserAsleep && windowFull && closedPercentage <= wakeThresholdPercent {
-            DispatchQueue.main.async {
-                self.isUserAsleep = false
-                self.statusMessage = "Awake detected. Cancelling timer and resuming tracking."
-                if TimerManager.shared.isTimerActive {
-                    TimerManager.shared.stopTimer()
-                }
-                // Notify status bar to update icon
-                NotificationCenter.default.post(name: .cameraModeChanged, object: nil)
-            }
-        }
-    }
-
     private func process(sampleBuffer: CMSampleBuffer) {
-        guard isCameraModeEnabled else {
+        guard isCameraModeEnabled,
+            let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
             return
         }
 
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-            return
-        }
-
-        // Create request with completion handler (reuse request object on next call)
         let request = VNDetectFaceLandmarksRequest { [weak self] request, error in
-            guard let self else { return }
-
-            if error != nil {
-                DispatchQueue.main.async {
-                    self.statusMessage = "Can't analyze video right now."
-                }
-                return
-            }
-
-            guard let observations = request.results as? [VNFaceObservation],
-                let face = observations.first,
-                let leftEye = face.landmarks?.leftEye,
-                let rightEye = face.landmarks?.rightEye else {
-                // No face or eyes detected; increment missed frames counter
-                self.missedFramesCount += 1
-
-                // Only reset window if we've missed enough consecutive frames
-                if self.missedFramesCount >= self.maxMissedFrames {
-                    self.eyeStateWindow.removeAll()
-                    self.closedFramesCount = 0 // Reset cached count when clearing window
-                    self.currentEyeState = false
-                    self.consecutiveClosedFrames = 0 // Reset so a lost face can't carry over into early sleep detection
-                    self.setFaceDetected(false)
-                    DispatchQueue.main.async {
-                        if self.isSessionRunning {
-                            self.statusMessage = "Looking for your face..."
-                        }
-                    }
-                }
-                return
-            }
-
-            // Face and eyes found; reset missed frames counter
-            self.missedFramesCount = 0
-            self.setFaceDetected(true)
-
-            let leftRatio = EyeAspectRatio.ratio(for: leftEye)
-            let rightRatio = EyeAspectRatio.ratio(for: rightEye)
-
-            let averageRatio = (leftRatio + rightRatio) / 2.0
-
-            // Apply hysteresis to prevent flicker for display state
-            // If currently open, need to drop below closed threshold to change state
-            // If currently closed, need to rise above open threshold to change state
-            let isClosed: Bool
-            if self.currentEyeState {
-                // Currently closed: only open if EAR rises above open threshold
-                isClosed = averageRatio < self.earOpenThreshold
-            } else {
-                // Currently open: only close if EAR drops below closed threshold
-                isClosed = averageRatio < self.earClosedThreshold
-            }
-
-            self.currentEyeState = isClosed
-
-            // For consecutive frame counting, use strict threshold without hysteresis
-            // This ensures blinks (partial eye opening) reset the counter
-            let isStrictlyClosed = averageRatio < self.earClosedThreshold
-            self.handleEyeState(closed: isStrictlyClosed)
-
-            // Update status message with throttling to reduce UI updates
-            let now = Date()
-            let shouldUpdateUI = self.lastUIUpdateTime
-                .map { now.timeIntervalSince($0) >= self.uiUpdateInterval } ?? true
-
-            if shouldUpdateUI {
-                self.lastUIUpdateTime = now
-
-                DispatchQueue.main.async {
-                    // Calculate percentage if we have enough frames
-                    if !self.eyeStateWindow.isEmpty {
-                        // Use cached count instead of filter
-                        let closedPercentage = Double(self.closedFramesCount) / Double(self.eyeStateWindow.count)
-
-                        // Always show percentage of closed eyes
-                        let closedPercent = Int(closedPercentage * 100)
-
-                        // Estimate time window (assuming ~10 fps)
-                        let timeWindow = self.eyeStateWindow.count / 10
-
-                        // Only update if message actually changed to avoid unnecessary string allocations
-                        let newMessage = "Eyes closed \(closedPercent)% for last \(timeWindow) sec"
-                        if self.statusMessage != newMessage {
-                            self.statusMessage = newMessage
-                        }
-                    } else {
-                        if self.statusMessage != "Tracking eyes" {
-                            self.statusMessage = "Tracking eyes"
-                        }
-                    }
-                }
-            }
+            self?.handleLandmarks(request: request, error: error)
         }
 
         // Use best revision if available
@@ -436,8 +247,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
 
         do {
             // Perform with orientation for better accuracy
-            let orientation = CGImagePropertyOrientation.up
-            try sequenceHandler.perform([request], on: pixelBuffer, orientation: orientation)
+            try sequenceHandler.perform([request], on: pixelBuffer, orientation: .up)
         } catch {
             DispatchQueue.main.async {
                 self.statusMessage = "Can't analyze video right now."
@@ -445,8 +255,112 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - Activity Check Timer (1.5-hour periodic check)
+    /// Vision landmark-request completion. Runs on `videoOutputQueue`, the only queue
+    /// that mutates `tracker`.
+    private func handleLandmarks(request: VNRequest, error: Error?) {
+        if error != nil {
+            DispatchQueue.main.async {
+                self.statusMessage = "Can't analyze video right now."
+            }
+            return
+        }
 
+        guard let observations = request.results as? [VNFaceObservation],
+            let face = observations.first,
+            let leftEye = face.landmarks?.leftEye,
+            let rightEye = face.landmarks?.rightEye else {
+            handleFaceLost()
+            return
+        }
+
+        handleFaceFound(leftEye: leftEye, rightEye: rightEye)
+    }
+
+    /// No face or eyes this frame. The tracker tolerates a run of missed frames; once
+    /// it drops the window we flag the face as lost and prompt the user to reappear.
+    private func handleFaceLost() {
+        guard tracker.recordMissedFrame() else { return }
+        setFaceDetected(false)
+        DispatchQueue.main.async {
+            if self.isSessionRunning {
+                self.statusMessage = "Looking for your face..."
+            }
+        }
+    }
+
+    /// Face and both eyes found. Feed the average EAR to the tracker and translate its
+    /// decision into side effects, then refresh the throttled status message.
+    private func handleFaceFound(leftEye: VNFaceLandmarkRegion2D, rightEye: VNFaceLandmarkRegion2D) {
+        setFaceDetected(true)
+
+        let averageRatio = (EyeAspectRatio.ratio(for: leftEye) + EyeAspectRatio.ratio(for: rightEye)) / 2.0
+        applyDecision(tracker.record(ear: averageRatio))
+
+        throttleStatusUpdate()
+    }
+
+    /// Turns a tracker decision into user-visible side effects: the sleep/wake flag,
+    /// the status message, the 30-minute timer, and the status-bar icon refresh.
+    private func applyDecision(_ decision: EyeStateTracker.Decision) {
+        switch decision {
+        case .sleepDetected:
+            DispatchQueue.main.async {
+                self.isUserAsleep = true
+                self.statusMessage = "Sleep detected. Starting 30-minute timer."
+                if !TimerManager.shared.isTimerActive {
+                    TimerManager.shared.startTimer(hours: 0.5)
+                }
+                NotificationCenter.default.post(name: .cameraModeChanged, object: nil)
+            }
+        case .wakeDetected:
+            DispatchQueue.main.async {
+                self.isUserAsleep = false
+                self.statusMessage = "Awake detected. Cancelling timer and resuming tracking."
+                if TimerManager.shared.isTimerActive {
+                    TimerManager.shared.stopTimer()
+                }
+                NotificationCenter.default.post(name: .cameraModeChanged, object: nil)
+            }
+        case .noChange:
+            break
+        }
+    }
+
+    /// Refreshes the "eyes closed N% for last M sec" status, throttled to at most one
+    /// update per `uiUpdateInterval`. Tracker values are read on the video queue and
+    /// captured before the string assignment is dispatched to main.
+    private func throttleStatusUpdate() {
+        let now = Date()
+        let shouldUpdateUI = lastUIUpdateTime
+            .map { now.timeIntervalSince($0) >= uiUpdateInterval } ?? true
+        guard shouldUpdateUI else { return }
+        lastUIUpdateTime = now
+
+        guard !tracker.isWindowEmpty else {
+            DispatchQueue.main.async {
+                if self.statusMessage != "Tracking eyes" {
+                    self.statusMessage = "Tracking eyes"
+                }
+            }
+            return
+        }
+
+        let closedPercent = Int(tracker.closedPercentage * 100)
+        let timeWindow = tracker.windowCount / 10 // ~10 fps
+        DispatchQueue.main.async {
+            let newMessage = "Eyes closed \(closedPercent)% for last \(timeWindow) sec"
+            if self.statusMessage != newMessage {
+                self.statusMessage = newMessage
+            }
+        }
+    }
+}
+
+// MARK: - Activity Check Timer (1.5-hour periodic check)
+
+// The periodic "are you asleep?" nag is independent of the camera frame pipeline,
+// so it lives in its own extension to keep the core detection type focused.
+extension SleepDetectionManager {
     private func startActivityCheckTimer() {
         stopActivityCheckTimer()
 

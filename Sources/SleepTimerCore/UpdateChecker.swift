@@ -73,7 +73,7 @@ public class UpdateChecker: ObservableObject {
     private func handleRelease(_ release: GitHubRelease, showNoUpdateAlert: Bool) {
         let latestVersion = release.tagName.replacingOccurrences(of: "v", with: "")
 
-        if isNewerVersion(latestVersion, than: currentVersion) {
+        if Self.isNewerVersion(latestVersion, than: currentVersion) {
             // Honor a previously skipped version, but only for automatic checks.
             // A manual "Check for Updates" always surfaces the available version.
             if !showNoUpdateAlert,
@@ -90,7 +90,7 @@ public class UpdateChecker: ObservableObject {
         }
     }
 
-    private func isNewerVersion(_ version1: String, than version2: String) -> Bool {
+    static func isNewerVersion(_ version1: String, than version2: String) -> Bool {
         let v1Components = version1.split(separator: ".").compactMap { Int($0) }
         let v2Components = version2.split(separator: ".").compactMap { Int($0) }
 
