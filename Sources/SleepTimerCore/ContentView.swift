@@ -42,7 +42,8 @@ public struct ContentView: View {
             // Common settings footer
             CommonSettingsView()
         }
-        .background(.regularMaterial)
+        // The panel provides a vibrant NSVisualEffectView backing, so the content
+        // stays transparent and lets that material show through.
         .onAppear {
             sleepManager.setCameraModeEnabled(selectedMode == .camera)
 

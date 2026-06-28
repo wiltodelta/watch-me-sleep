@@ -7,7 +7,7 @@ public func openAppSettings() {
 }
 
 /// Preferences window content. Hosts the global settings that used to clutter the
-/// menu bar popover: idle auto-start, launch at login, and update checks.
+/// menu bar panel: idle auto-start, launch at login, and update checks.
 public struct SettingsView: View {
     @StateObject private var autoActivation = AutoActivationManager.shared
     @StateObject private var launchManager = LaunchAtLoginManager.shared

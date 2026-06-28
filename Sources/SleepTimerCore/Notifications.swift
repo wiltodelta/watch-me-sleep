@@ -12,7 +12,7 @@ public extension Notification.Name {
     /// Posted right before sleep so the UI switches back from camera mode to manual mode.
     static let cameraModeDisabled = Notification.Name("CameraModeDisabled")
 
-    /// Posted by the popover to ask the app delegate to open the settings window.
+    /// Posted by the panel to ask the app delegate to open the settings window.
     /// A menu-bar `.accessory` app cannot rely on the SwiftUI `Settings` scene, so the
     /// delegate hosts `SettingsView` in its own window in response to this.
     static let openSettings = Notification.Name("OpenSettings")

@@ -13,12 +13,11 @@ struct CameraModeView: View {
             previewSection
             statusCard
             timerCard
-            Spacer(minLength: 0)
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .padding(.bottom, 16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, alignment: .top)
         .animation(.easeInOut(duration: 0.18), value: sleepManager.isUserAsleep)
         .animation(.easeInOut(duration: 0.18), value: timerManager.isTimerActive)
     }
@@ -178,7 +177,7 @@ struct CameraPreview: NSViewRepresentable {
     func updateNSView(_ nsView: PreviewHostView, context: Context) {}
 }
 
-/// Restrained, system-style card used to group content in the popover.
+/// Restrained, system-style card used to group content in the panel.
 private struct Card: ViewModifier {
     func body(content: Content) -> some View {
         content

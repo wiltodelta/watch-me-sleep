@@ -6,7 +6,7 @@ struct SleepTimerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        // The app is a menu-bar accessory; all UI lives in the status-bar popover
+        // The app is a menu-bar accessory; all UI lives in the status-bar panel
         // and a settings window the delegate manages. This scene just satisfies the
         // App requirement.
         Settings {
@@ -17,7 +17,7 @@ struct SleepTimerApp: App {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
-    private var popover: NSPopover!
+    private var panel: MenuBarPanelController!
     private var timerManager = TimerManager.shared
     private var sleepManager = SleepDetectionManager.shared
     private var updateChecker = UpdateChecker.shared
@@ -57,18 +57,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 image.size = NSSize(width: 18, height: 18)
                 button.image = image
             }
-            button.action = #selector(togglePopover)
+            button.action = #selector(togglePanel)
             button.target = self
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
 
-        // Create popover
-        popover = NSPopover()
-        popover.contentSize = NSSize(width: 360, height: 420)
-        popover.behavior = .transient
-        popover.animates = false // instant show/resize so mode switches feel snappy
-        popover.contentViewController = NSHostingController(rootView: ContentView())
-        popover.delegate = self
+        // Create the arrowless dropdown panel
+        panel = MenuBarPanelController(rootView: ContentView(), size: NSSize(width: 360, height: 420))
 
         // Update icon when timer changes
         NotificationCenter.default.addObserver(
@@ -88,7 +83,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.updateStatusItem()
         }
 
-        // Open the settings window when the popover requests it
+        // Open the settings window when the panel requests it
         NotificationCenter.default.addObserver(
             forName: .openSettings,
             object: nil,
@@ -108,25 +103,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc func togglePopover() {
-        // Right-click shows a quick-action menu instead of the popover.
+    @objc func togglePanel() {
+        // Right-click shows a quick-action menu instead of the panel.
         if NSApp.currentEvent?.type == .rightMouseUp {
+            panel.close()
             showQuickMenu()
             return
         }
 
-        if let button = statusItem.button {
-            if popover.isShown {
-                stopMonitoringStatusBarPosition()
-                popover.performClose(nil)
-            } else {
-                // Always reposition popover relative to current button bounds
-                popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-                popover.contentViewController?.view.window?.makeKey()
-
-                // Start monitoring for status item position changes
-                startMonitoringStatusBarPosition()
-            }
+        guard let button = statusItem.button else { return }
+        if panel.isShown {
+            panel.close()
+        } else {
+            panel.show(relativeTo: button)
         }
     }
 
@@ -181,7 +170,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.terminate(nil)
     }
 
-    private var positionMonitorTimer: Timer?
     private var settingsWindow: NSWindow?
 
     @objc private func showSettingsWindow() {
@@ -201,27 +189,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         settingsWindow?.makeKeyAndOrderFront(nil)
-    }
-
-    private func startMonitoringStatusBarPosition() {
-        stopMonitoringStatusBarPosition()
-
-        positionMonitorTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self = self,
-                  self.popover.isShown,
-                  let button = self.statusItem.button else {
-                self?.stopMonitoringStatusBarPosition()
-                return
-            }
-
-            // Reposition popover to follow the button
-            self.popover.positioningRect = button.bounds
-        }
-    }
-
-    private func stopMonitoringStatusBarPosition() {
-        positionMonitorTimer?.invalidate()
-        positionMonitorTimer = nil
     }
 
     private func updateStatusItem() {
@@ -267,12 +234,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return String(format: "Auto-start armed: timer when idle after %02d:00", autoActivation.activeAfterHour)
         }
         return "Sleep Timer"
-    }
-}
-
-extension AppDelegate: NSPopoverDelegate {
-    func popoverDidClose(_ notification: Notification) {
-        stopMonitoringStatusBarPosition()
     }
 }
 

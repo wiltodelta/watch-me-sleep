@@ -18,3 +18,7 @@ You are a **principal Swift/macOS engineer** maintaining a menu bar app that aut
 ## UI
 
 - This is a menu-bar `.accessory` app. The SwiftUI `Settings` scene does NOT open reliably from it — `SettingsView` is hosted in a custom `NSWindow` by `AppDelegate`, opened via the `OpenSettings` notification (`openAppSettings()`), toggling `.regular`/`.accessory` activation policy around it.
+- The main dropdown is a custom arrowless borderless `NSPanel` (`MenuBarPanel.swift`), not an `NSPopover` (whose triangular arrow looks dated). Three things there are load-bearing and easy to regress:
+  - Window height is driven by `host.sizeThatFits(in:)`, NOT `NSHostingController.preferredContentSize` — the latter undercounts tall content and clips the footer in camera mode.
+  - The `NSVisualEffectView` vibrancy + tint are AppKit siblings *behind* the SwiftUI hosting view, kept out of the measured SwiftUI tree; embedding the effect inside the self-sizing SwiftUI content recurses through Auto Layout and crashes (stack overflow).
+  - Content width is pinned via `.frame(width:)`; without it the greedy `maxWidth: .infinity` content collapses and the panel comes out too narrow. Corner rounding lives on a layer-backed `NSView` with `masksToBounds` (rounding the visual-effect view itself leaves square opaque corners).
