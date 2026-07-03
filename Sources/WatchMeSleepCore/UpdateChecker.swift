@@ -4,7 +4,7 @@ import AppKit
 public class UpdateChecker: ObservableObject {
     public static let shared = UpdateChecker()
 
-    private let githubRepo = "wiltodelta/sleep-timer-app"
+    private let githubRepo = "wiltodelta/watch-me-sleep"
     private let currentVersion: String
     private let skippedVersionKey = "skippedVersion"
 
@@ -111,7 +111,7 @@ public class UpdateChecker: ObservableObject {
     private func showUpdateAlert(version: String, url: String, releaseNotes: String?) {
         let alert = NSAlert()
         alert.messageText = "Update Available"
-        alert.informativeText = "Sleep Timer \(version) is now available. You have \(currentVersion)."
+        alert.informativeText = "Watch Me While I Fall Asleep \(version) is now available. You have \(currentVersion)."
             + "\n\nWould you like to download it?"
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Download")
@@ -140,7 +140,8 @@ public class UpdateChecker: ObservableObject {
     private func showNoUpdateAvailableAlert() {
         let alert = NSAlert()
         alert.messageText = "You're up to date!"
-        alert.informativeText = "Sleep Timer \(currentVersion) is currently the newest version available."
+        alert.informativeText = "Watch Me While I Fall Asleep \(currentVersion) is currently the newest "
+            + "version available."
         alert.alertStyle = .informational
         alert.addButton(withTitle: "OK")
 

@@ -1,5 +1,5 @@
 import XCTest
-@testable import SleepTimerCore
+@testable import WatchMeSleepCore
 
 final class EyeStateTrackerTests: XCTestCase {
     // EAR values clearly on either side of the default thresholds (closed < 0.20,

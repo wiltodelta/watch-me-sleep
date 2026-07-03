@@ -1,6 +1,6 @@
 import XCTest
 import Vision
-@testable import SleepTimerCore
+@testable import WatchMeSleepCore
 
 final class SleepDetectionManagerTests: XCTestCase {
     var sleepManager: SleepDetectionManager!

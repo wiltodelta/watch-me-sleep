@@ -5,7 +5,7 @@
 *.xcworkspace/
 
 # Build artifacts
-Sleep Timer.app/
+Watch Me While I Fall Asleep.app/
 *.app/
 .DS_Store
 

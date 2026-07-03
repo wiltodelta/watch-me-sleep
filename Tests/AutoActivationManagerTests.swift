@@ -1,5 +1,5 @@
 import XCTest
-@testable import SleepTimerCore
+@testable import WatchMeSleepCore
 
 final class AutoActivationManagerTests: XCTestCase {
     var manager: AutoActivationManager!

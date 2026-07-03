@@ -1,8 +1,8 @@
 import SwiftUI
-import SleepTimerCore
+import WatchMeSleepCore
 
 @main
-struct SleepTimerApp: App {
+struct WatchMeSleepApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
@@ -37,7 +37,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Prevent multiple instances
         if isAnotherInstanceRunning() {
-            NSLog("Sleep Timer is already running - terminating duplicate instance")
+            NSLog("Watch Me While I Fall Asleep is already running - terminating duplicate instance")
             NSApp.terminate(nil)
             return
         }
@@ -150,7 +150,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         settings.target = self
         menu.addItem(settings)
 
-        let quit = NSMenuItem(title: "Quit Sleep Timer", action: #selector(quitApp), keyEquivalent: "q")
+        let quit = NSMenuItem(title: "Quit Watch Me While I Fall Asleep",
+                              action: #selector(quitApp), keyEquivalent: "q")
         quit.target = self
         menu.addItem(quit)
 
@@ -173,10 +174,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindow: NSWindow?
 
     @objc private func showSettingsWindow() {
+        // Dismiss the dropdown panel so it doesn't linger behind the settings window.
+        panel.close()
+
         if settingsWindow == nil {
             let hosting = NSHostingController(rootView: SettingsView())
             let window = NSWindow(contentViewController: hosting)
-            window.title = "Sleep Timer Settings"
+            window.title = "Watch Me While I Fall Asleep Settings"
             window.styleMask = [.titled, .closable]
             window.isReleasedWhenClosed = false
             window.delegate = self
@@ -228,12 +232,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func statusTooltip() -> String {
         if timerManager.isTimerActive {
-            return "Sleep Timer running"
+            return "Watch Me While I Fall Asleep running"
         }
         if autoActivation.isEnabled {
             return String(format: "Auto-start armed: timer when idle after %02d:00", autoActivation.activeAfterHour)
         }
-        return "Sleep Timer"
+        return "Watch Me While I Fall Asleep"
     }
 }
 

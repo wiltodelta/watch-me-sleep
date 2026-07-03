@@ -2,31 +2,30 @@
 import PackageDescription
 
 let package = Package(
-    name: "SleepTimer",
+    name: "WatchMeSleep",
     platforms: [
         .macOS(.v13)
     ],
     products: [
         .executable(
-            name: "SleepTimer",
-            targets: ["SleepTimer"]
+            name: "WatchMeSleep",
+            targets: ["WatchMeSleep"]
         )
     ],
     targets: [
         .target(
-            name: "SleepTimerCore",
-            path: "Sources/SleepTimerCore"
+            name: "WatchMeSleepCore",
+            path: "Sources/WatchMeSleepCore"
         ),
         .executableTarget(
-            name: "SleepTimer",
-            dependencies: ["SleepTimerCore"],
-            path: "Sources/SleepTimer"
+            name: "WatchMeSleep",
+            dependencies: ["WatchMeSleepCore"],
+            path: "Sources/WatchMeSleep"
         ),
         .testTarget(
-            name: "SleepTimerTests",
-            dependencies: ["SleepTimerCore"],
+            name: "WatchMeSleepTests",
+            dependencies: ["WatchMeSleepCore"],
             path: "Tests"
         )
     ]
 )
-

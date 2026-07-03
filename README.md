@@ -1,16 +1,16 @@
-# Sleep Timer for macOS
+# Watch Me While I Fall Asleep for macOS
 
-[![Build Sleep Timer App](https://github.com/wiltodelta/sleep-timer-app/actions/workflows/build.yml/badge.svg)](https://github.com/wiltodelta/sleep-timer-app/actions/workflows/build.yml)
+[![Build Watch Me While I Fall Asleep App](https://github.com/wiltodelta/watch-me-sleep/actions/workflows/build.yml/badge.svg)](https://github.com/wiltodelta/watch-me-sleep/actions/workflows/build.yml)
 
 A menu bar application for macOS that allows you to set a sleep timer to automatically put your Mac to sleep. Features both manual timer mode and intelligent camera-based sleep detection.
 
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/manual-timer.png" alt="Sleep Timer - Manual Mode" width="280">
-  <img src="screenshots/active-manual-timer.png" alt="Sleep Timer - Active Timer" width="280">
-  <img src="screenshots/camera-mode.png" alt="Sleep Timer - Camera Mode" width="280">
-  <img src="screenshots/settings.png" alt="Sleep Timer - Settings" width="280">
+  <img src="screenshots/manual-timer.png" alt="Watch Me While I Fall Asleep - Manual Mode" width="280">
+  <img src="screenshots/active-manual-timer.png" alt="Watch Me While I Fall Asleep - Active Timer" width="280">
+  <img src="screenshots/camera-mode.png" alt="Watch Me While I Fall Asleep - Camera Mode" width="280">
+  <img src="screenshots/settings.png" alt="Watch Me While I Fall Asleep - Settings" width="280">
 </p>
 
 ## Features
@@ -49,15 +49,15 @@ A menu bar application for macOS that allows you to set a sleep timer to automat
 
 ### Option 1: Download Pre-built App (Recommended)
 
-1. Go to [Actions](https://github.com/wiltodelta/sleep-timer-app/actions) tab
+1. Go to [Actions](https://github.com/wiltodelta/watch-me-sleep/actions) tab
 2. Click on the latest successful build
-3. Download `Sleep-Timer-macOS` artifact
+3. Download `WatchMeSleep-macOS` artifact
 4. Unzip the downloaded file
 5. **Important**: Remove the quarantine attribute:
    ```bash
-   xattr -cr "Sleep Timer.app"
+   xattr -cr "Watch Me While I Fall Asleep.app"
    ```
-6. Move `Sleep Timer.app` to Applications folder
+6. Move `Watch Me While I Fall Asleep.app` to Applications folder
 
 > **Note**: The app is not notarized by Apple, so you need to remove the quarantine attribute or right-click and select "Open" the first time.
 >
@@ -67,8 +67,8 @@ A menu bar application for macOS that allows you to set a sleep timer to automat
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/wiltodelta/sleep-timer-app.git
-cd sleep-timer-app
+git clone https://github.com/wiltodelta/watch-me-sleep.git
+cd watch-me-sleep
 ```
 
 2. Create app bundle:
@@ -78,12 +78,12 @@ cd sleep-timer-app
 
 3. Open the app:
 ```bash
-open "Sleep Timer.app"
+open "Watch Me While I Fall Asleep.app"
 ```
 
 Or move to Applications:
 ```bash
-mv "Sleep Timer.app" /Applications/
+mv "Watch Me While I Fall Asleep.app" /Applications/
 ```
 
 ## Usage
@@ -221,7 +221,7 @@ MIT License - feel free to use this project for personal or commercial purposes.
 
 ## Troubleshooting
 
-**"Sleep Timer is damaged and can't be opened" error:**
+**"Watch Me While I Fall Asleep is damaged and can't be opened" error:**
 - This is macOS Gatekeeper blocking unsigned apps downloaded from the internet
 - To fix this, first navigate to Applications folder in Terminal:
   ```bash
@@ -229,7 +229,7 @@ MIT License - feel free to use this project for personal or commercial purposes.
   ```
 - Then run this command to remove the quarantine attribute:
   ```bash
-  xattr -cr "Sleep Timer.app"
+  xattr -cr "Watch Me While I Fall Asleep.app"
   ```
 - Alternatively, right-click the app in Finder, select "Open", and confirm in the dialog
 - **Why this happens**: The app is not notarized by Apple, so macOS marks it as potentially unsafe
@@ -240,7 +240,7 @@ MIT License - feel free to use this project for personal or commercial purposes.
 
 **Camera mode not working:**
 - Check System Settings > Privacy & Security > Camera
-- Ensure Sleep Timer has camera access enabled
+- Ensure Watch Me While I Fall Asleep has camera access enabled
 - Make sure your face is visible and well-lit
 - The camera green indicator should be visible when camera mode is active
 

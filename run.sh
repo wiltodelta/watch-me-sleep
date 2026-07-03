@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Build the app if not already built or if source files changed
-if [ ! -f ".build/release/SleepTimer" ] || [ Sources -nt .build/release/SleepTimer ]; then
-    echo "Building Sleep Timer..."
+if [ ! -f ".build/release/WatchMeSleep" ] || [ Sources -nt .build/release/WatchMeSleep ]; then
+    echo "Building Watch Me While I Fall Asleep..."
     swift build -c release
     if [ $? -ne 0 ]; then
         echo "Build failed!"
@@ -11,5 +11,5 @@ if [ ! -f ".build/release/SleepTimer" ] || [ Sources -nt .build/release/SleepTim
 fi
 
 # Run the application
-echo "Starting Sleep Timer..."
-.build/release/SleepTimer
+echo "Starting Watch Me While I Fall Asleep..."
+.build/release/WatchMeSleep

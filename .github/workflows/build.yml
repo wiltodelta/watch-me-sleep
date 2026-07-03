@@ -1,4 +1,4 @@
-name: Build Sleep Timer App
+name: Build Watch Me While I Fall Asleep App
 
 on:
   push:
@@ -62,21 +62,21 @@ jobs:
     - name: Create ZIP Archive
       run: |
         VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo '1.0.0')
-        ZIP_NAME="Sleep-Timer-v${VERSION}-macOS.zip"
-        zip -r -y "$ZIP_NAME" "Sleep Timer.app"
+        ZIP_NAME="WatchMeSleep-v${VERSION}-macOS.zip"
+        zip -r -y "$ZIP_NAME" "Watch Me While I Fall Asleep.app"
     
     - name: Upload App Bundle
       uses: actions/upload-artifact@v7
       with:
-        name: Sleep-Timer-macOS
-        path: Sleep-Timer-v*-macOS.zip
+        name: WatchMeSleep-macOS
+        path: WatchMeSleep-v*-macOS.zip
         retention-days: 30
     
     - name: Create Release (on tag)
       if: startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v3
       with:
-        files: Sleep-Timer-v*-macOS.zip
+        files: WatchMeSleep-v*-macOS.zip
         draft: false
         prerelease: false
       env:

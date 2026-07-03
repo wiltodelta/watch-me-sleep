@@ -1,5 +1,5 @@
 import XCTest
-@testable import SleepTimerCore
+@testable import WatchMeSleepCore
 
 final class UpdateCheckerTests: XCTestCase {
     // MARK: - Newer versions

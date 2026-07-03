@@ -1,5 +1,5 @@
 import XCTest
-@testable import SleepTimerCore
+@testable import WatchMeSleepCore
 
 final class EyeAspectRatioTests: XCTestCase {
     private let accuracy = 0.0001

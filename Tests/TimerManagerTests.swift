@@ -1,5 +1,5 @@
 import XCTest
-@testable import SleepTimerCore
+@testable import WatchMeSleepCore
 
 final class TimerManagerTests: XCTestCase {
     var timerManager: TimerManager!

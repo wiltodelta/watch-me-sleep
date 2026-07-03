@@ -51,7 +51,7 @@ struct CameraModeView: View {
             Text("Camera Sleep Mode")
                 .font(.headline)
 
-            Text("Sleep Timer gently watches for closed eyes and auto-starts a 30-minute timer. "
+            Text("Watch Me While I Fall Asleep gently watches for closed eyes and auto-starts a 30-minute timer. "
                 + "Open your eyes for a few seconds to cancel it. "
                 + "It will also auto-sleep after 1.5 hours of tracking.")
                 .font(.caption)
@@ -74,7 +74,7 @@ struct CameraModeView: View {
                 title: "Camera access",
                 detail: sleepManager.isCameraAuthorized
                     ? "Permission granted."
-                    : "Allow Sleep Timer to use the camera in System Settings."
+                    : "Allow Watch Me While I Fall Asleep to use the camera in System Settings."
             )
 
             statusRow(

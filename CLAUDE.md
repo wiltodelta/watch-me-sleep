@@ -1,11 +1,11 @@
-# Sleep Timer
+# Watch Me While I Fall Asleep
 
 You are a **principal Swift/macOS engineer** maintaining a menu bar app that automatically puts your Mac to sleep with manual timer controls and intelligent camera-based eye-closure detection.
 
 ## How to run
 
 - `./run.sh` — build and run for development
-- `./create-app.sh` — create standalone .app bundle (assembles the bundle, then ad-hoc re-signs it; `swift build` signs only the executable, so adding Info.plist/Resources afterwards invalidates the signature and the bundle must be re-signed or Gatekeeper rejects Finder launches)
+- `./create-app.sh` — create standalone .app bundle (assembles the bundle, then re-signs it; `swift build` signs only the executable, so adding Info.plist/Resources afterwards invalidates the signature and the bundle must be re-signed or Gatekeeper rejects Finder launches). Signs with the stable self-signed identity "Watch Me While I Fall Asleep Dev" so the Camera (TCC) grant survives rebuilds; falls back to ad-hoc when the identity is missing (e.g. in CI), which makes macOS re-prompt for camera access.
 
 ## Test and lint
 

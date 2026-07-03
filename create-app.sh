@@ -1,7 +1,7 @@
 #!/bin/bash
 
-APP_NAME="Sleep Timer"
-BUNDLE_ID="com.sleeptimer.app"
+APP_NAME="Watch Me While I Fall Asleep"
+BUNDLE_ID="com.wiltodelta.watchmesleep"
 BUILD_DIR=".build/release"
 APP_DIR="$APP_NAME.app"
 
@@ -28,7 +28,7 @@ if [ -f "./generate-assets.sh" ]; then
     ./generate-assets.sh
 fi
 
-echo "Building Sleep Timer for release..."
+echo "Building Watch Me While I Fall Asleep for release..."
 swift build -c release
 
 if [ $? -ne 0 ]; then
@@ -46,7 +46,7 @@ mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Resources"
 
 # Copy binary
-cp "$BUILD_DIR/SleepTimer" "$APP_DIR/Contents/MacOS/SleepTimer"
+cp "$BUILD_DIR/WatchMeSleep" "$APP_DIR/Contents/MacOS/WatchMeSleep"
 
 # Copy compiled assets
 if [ -f "Resources/Assets.car" ]; then
@@ -67,7 +67,7 @@ cat > "$APP_DIR/Contents/Info.plist" << EOF
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleExecutable</key>
-	<string>SleepTimer</string>
+	<string>WatchMeSleep</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
@@ -87,7 +87,7 @@ cat > "$APP_DIR/Contents/Info.plist" << EOF
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Sleep Timer uses your camera to detect when you fall asleep by tracking your eye closure.</string>
+	<string>Watch Me While I Fall Asleep uses your camera to detect when you fall asleep by tracking your eye closure.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>
@@ -96,11 +96,26 @@ EOF
 
 echo "✅ App bundle created successfully: $APP_DIR"
 
-# Ad-hoc re-sign the assembled bundle. swift build signs only the executable;
-# adding Info.plist and Resources afterwards invalidates that signature, so the
-# bundle needs a fresh signature with matching CodeResources for Gatekeeper/Finder.
-echo "🔏 Ad-hoc signing the bundle..."
-codesign --force --deep --sign - "$APP_DIR"
+# Re-sign the assembled bundle. swift build signs only the executable; adding
+# Info.plist and Resources afterwards invalidates that signature, so the bundle
+# needs a fresh signature with matching CodeResources for Gatekeeper/Finder.
+#
+# Prefer a stable self-signed identity so the Camera (TCC) grant persists across
+# rebuilds; fall back to ad-hoc when it is missing (e.g. in CI), which makes
+# macOS re-prompt for camera access. Recreate the identity once with:
+#   openssl req -x509 -newkey rsa:2048 -keyout k.key -out c.crt -days 3650 -nodes \
+#     -subj "/CN=$SIGN_IDENTITY" -addext "extendedKeyUsage=critical,codeSigning"
+#   openssl pkcs12 -export -out c.p12 -inkey k.key -in c.crt -passout pass:wms \
+#     -name "$SIGN_IDENTITY" -macalg sha1 -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES
+#   security import c.p12 -k ~/Library/Keychains/login.keychain-db -P wms -A
+SIGN_IDENTITY="Watch Me While I Fall Asleep Dev"
+if security find-identity -p codesigning 2>/dev/null | grep -q "$SIGN_IDENTITY" \
+    && codesign --force --deep --sign "$SIGN_IDENTITY" "$APP_DIR" 2>/dev/null; then
+    echo "🔏 Signed the bundle with '$SIGN_IDENTITY'."
+else
+    echo "🔏 Ad-hoc signing the bundle (Camera access will re-prompt on relaunch)..."
+    codesign --force --deep --sign - "$APP_DIR"
+fi
 
 # Remove quarantine attribute if running locally (not in CI)
 if [ -z "$CI" ]; then
