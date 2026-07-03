@@ -14,6 +14,7 @@ You are a **principal Swift/macOS engineer** maintaining a menu bar app that aut
 - `swift test` requires full Xcode (XCTest is absent from Command Line Tools); `swift build`/`./create-app.sh` work on CLT alone.
 - Stale `.build` after the repo moves paths fails with a `SwiftShims ... module cache path` error — fix with `rm -rf .build`.
 - Tests must override the manager seams (e.g. `TimerManager.sleepHandler`) — otherwise `swift test` runs the real `pmset sleepnow` and sleeps the Mac. Managers inject closures + `UserDefaults(suiteName:)` for testability.
+- Never assert timer completion by waiting on wall-clock time — that is flaky under CI load. `TimerManager` exposes a `now: () -> Date` clock seam and a `tick()` method: inject a controllable clock, advance it, call `tick()`, and assert synchronously (see `TimerManagerTests.testVeryShortTimer`). Reset `now` in `setUp`/`tearDown` since the manager is a shared singleton.
 
 ## UI
 

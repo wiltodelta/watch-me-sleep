@@ -12,10 +12,13 @@ final class TimerManagerTests: XCTestCase {
         // Override the sleep seam so the suite never actually sleeps the machine.
         didTriggerSleep = false
         timerManager.sleepHandler = { [weak self] in self?.didTriggerSleep = true }
+        // Reset the clock seam so a frozen clock never leaks between tests (shared singleton).
+        timerManager.now = Date.init
     }
 
     override func tearDown() {
         timerManager.stopTimer()
+        timerManager.now = Date.init
         super.tearDown()
     }
     
@@ -155,23 +158,22 @@ final class TimerManagerTests: XCTestCase {
     // MARK: - Timer Update Tests
     
     func testTimerUpdatesRemainingTime() {
-        // Given
-        let expectation = self.expectation(description: "Timer updates remaining time")
-        timerManager.startTimer(hours: 0.001) // ~3.6 seconds
+        // Given a controllable clock so the assertion is deterministic, not wall-clock timed.
+        var fakeNow = Date()
+        timerManager.now = { fakeNow }
+        timerManager.startTimer(hours: 1.0)
         let initialRemaining = timerManager.remainingTime
-        
-        // When
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            // Then
-            XCTAssertLessThan(
-                self.timerManager.remainingTime,
-                initialRemaining,
-                "Remaining time should decrease"
-            )
-            expectation.fulfill()
-        }
-        
-        waitForExpectations(timeout: 3.0)
+
+        // When time advances and a timer cycle runs
+        fakeNow = fakeNow.addingTimeInterval(60)
+        timerManager.tick()
+
+        // Then
+        XCTAssertLessThan(
+            timerManager.remainingTime,
+            initialRemaining,
+            "Remaining time should decrease"
+        )
     }
     
     // MARK: - Notification Tests
@@ -238,20 +240,21 @@ final class TimerManagerTests: XCTestCase {
     // MARK: - Edge Cases
     
     func testVeryShortTimer() {
-        // Given
-        let expectation = self.expectation(description: "Very short timer completes")
+        // Given a controllable clock so completion is driven deterministically,
+        // not by waiting on a real Timer (which is flaky under CI load).
+        var fakeNow = Date()
+        timerManager.now = { fakeNow }
 
-        // When
+        // When a short timer is started and time advances past its target
         timerManager.startTimer(hours: 0.0003) // ~1 second
+        XCTAssertTrue(timerManager.isTimerActive, "Timer should be active right after starting")
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            // Then
-            XCTAssertFalse(self.timerManager.isTimerActive, "Timer should stop after completion")
-            XCTAssertTrue(self.didTriggerSleep, "Sleep handler should fire when the timer reaches zero")
-            expectation.fulfill()
-        }
+        fakeNow = fakeNow.addingTimeInterval(2)
+        timerManager.tick()
 
-        waitForExpectations(timeout: 3.0)
+        // Then
+        XCTAssertFalse(timerManager.isTimerActive, "Timer should stop after completion")
+        XCTAssertTrue(didTriggerSleep, "Sleep handler should fire when the timer reaches zero")
     }
     
     func testTimerWithLargeHours() {

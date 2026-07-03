@@ -15,6 +15,11 @@ public class TimerManager: ObservableObject {
     // the computer to sleep; tests override it so the suite never sleeps the machine.
     var sleepHandler: () -> Void = {}
 
+    // Seam for tests: the current-time provider. Production uses the wall clock;
+    // tests inject a controllable clock so they can advance time synchronously
+    // instead of waiting on a real `Timer` (which is flaky under CI load).
+    var now: () -> Date = Date.init
+
     private init() {
         sleepHandler = { [weak self] in self?.putComputerToSleep() }
     }
@@ -24,7 +29,7 @@ public class TimerManager: ObservableObject {
 
         totalTime = hours * 3600
         remainingTime = totalTime
-        targetDate = Date().addingTimeInterval(totalTime)
+        targetDate = now().addingTimeInterval(totalTime)
         isTimerActive = true
 
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -44,13 +49,20 @@ public class TimerManager: ObservableObject {
         notifyTimerUpdated()
     }
 
+    // Seam for tests: run one timer update cycle synchronously, as the scheduled
+    // `Timer` would. Lets tests drive completion by advancing the injected clock
+    // and calling this directly, without waiting on wall-clock time.
+    func tick() {
+        updateTimer()
+    }
+
     private func updateTimer() {
         guard let targetDate = targetDate else {
             stopTimer()
             return
         }
 
-        remainingTime = targetDate.timeIntervalSinceNow
+        remainingTime = targetDate.timeIntervalSince(now())
 
         if remainingTime <= 0 {
             stopTimer()
