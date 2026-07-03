@@ -158,4 +158,5 @@ Local builds report version `dev` and are not meant for distribution.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the
+full text.
