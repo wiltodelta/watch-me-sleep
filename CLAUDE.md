@@ -5,11 +5,11 @@ You are a **principal Swift/macOS engineer** maintaining a menu bar app that aut
 ## How to run
 
 - `./run.sh` — build and run for development
-- `./create-app.sh` — create standalone .app bundle (assembles the bundle, then re-signs it; `swift build` signs only the executable, so adding Info.plist/Resources afterwards invalidates the signature and the bundle must be re-signed or Gatekeeper rejects Finder launches). Signs with the stable self-signed identity "Watch Me While I Fall Asleep Dev" so the Camera (TCC) grant survives rebuilds; falls back to ad-hoc when the identity is missing (e.g. in CI), which makes macOS re-prompt for camera access.
+- `./create-app.sh` — create standalone .app bundle (assembles the bundle, then re-signs it; `swift build` signs only the executable, so adding Info.plist/Resources afterwards invalidates the signature and the bundle must be re-signed or Gatekeeper rejects Finder launches). The stable signing identity here is "Watch Me While I Fall Asleep Dev"; the TCC grant it preserves is Camera.
 
 ## Test and lint
 
-- `bash maintain.sh` — swiftlint lint --fix, swift test, swift build -c release
+- `bash maintain.sh` — the canonical Swift gate.
 - `swiftlint` must be installed for the lint step (`brew install swiftlint`); `maintain.sh` skips linting if it is missing.
 - `swift test` requires full Xcode (XCTest is absent from Command Line Tools); `swift build`/`./create-app.sh` work on CLT alone.
 - Stale `.build` after the repo moves paths fails with a `SwiftShims ... module cache path` error — fix with `rm -rf .build`.
