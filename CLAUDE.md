@@ -5,16 +5,14 @@ You are a **principal Swift/macOS engineer** maintaining a menu bar app that aut
 ## How to run
 
 - `./run.sh` — build and run for development
-- `./create-app.sh` — create standalone .app bundle (assembles the bundle, then re-signs it; `swift build` signs only the executable, so adding Info.plist/Resources afterwards invalidates the signature and the bundle must be re-signed or Gatekeeper rejects Finder launches). The stable signing identity here is "Watch Me While I Fall Asleep Dev"; the TCC grant it preserves is Camera.
+- `./create-app.sh` — assemble the standalone .app bundle and re-sign it. The stable signing identity here is "Watch Me While I Fall Asleep Dev"; the TCC grant it preserves is Camera.
 
 ## Test and lint
 
 - `bash maintain.sh` — the canonical Swift gate.
 - `swiftlint` must be installed for the lint step (`brew install swiftlint`); `maintain.sh` skips linting if it is missing.
-- `swift test` requires full Xcode (XCTest is absent from Command Line Tools); `swift build`/`./create-app.sh` work on CLT alone.
 - Stale `.build` after the repo moves paths fails with a `SwiftShims ... module cache path` error — fix with `rm -rf .build`.
-- Tests must override the manager seams (e.g. `TimerManager.sleepHandler`) — otherwise `swift test` runs the real `pmset sleepnow` and sleeps the Mac. Managers inject closures + `UserDefaults(suiteName:)` for testability.
-- Never assert timer completion by waiting on wall-clock time — that is flaky under CI load. `TimerManager` exposes a `now: () -> Date` clock seam and a `tick()` method: inject a controllable clock, advance it, call `tick()`, and assert synchronously (see `TimerManagerTests.testVeryShortTimer`). Reset `now` in `setUp`/`tearDown` since the manager is a shared singleton.
+- The seams the global testing rules require are `TimerManager.sleepHandler` (unoverridden, it runs the real `pmset sleepnow`), the `now: () -> Date` clock plus `tick()` (worked example: `TimerManagerTests.testVeryShortTimer`), and `UserDefaults(suiteName:)`. Reset `now` in `setUp`/`tearDown`, because the manager is a shared singleton and the override outlives the test that set it.
 
 ## UI
 
