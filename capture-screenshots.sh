@@ -34,10 +34,11 @@ import AppKit
 import CoreImage
 
 // window <pid> <width>          -> "id x y w h" of the on-screen window that wide
-// named <pid> <title>           -> "id" of the on-screen window with that title
-// backdrop <x> <y> <w> <h>      -> show a plain window-background-colored window
-//                                  there (screen points, top-left origin) until killed
-// round <png> <radius>          -> make the corners outside a rounded rect transparent
+// named <pid> <title>           -> "id x y w h" of the on-screen window with that title
+// menubar                       -> the menu bar height in points
+// backdrop <x> <y> <w> <h>      -> show a plain backdrop window there (screen points,
+//                                  top-left origin) until killed
+// pad <png> <top>               -> add <top> points above the image in its top-left color
 // blur <png> <x> <y> <w> <h> <r> -> blur inside that rounded rect (points, top-left)
 let args = CommandLine.arguments
 
@@ -52,10 +53,10 @@ func roundedMask(extent: CGRect, rect: CGRect, radius: CGFloat) -> CIImage {
     return CIImage(cgImage: ctx.makeImage()!)
 }
 
-func load(_ path: String) -> (URL, CIImage, CGFloat) {
+func load(_ path: String) -> (URL, CIImage, CGFloat, NSBitmapImageRep) {
     let url = URL(fileURLWithPath: path)
     let rep = NSBitmapImageRep(data: try! Data(contentsOf: url))!
-    return (url, CIImage(contentsOf: url)!, CGFloat(rep.pixelsWide) / rep.size.width)
+    return (url, CIImage(contentsOf: url)!, CGFloat(rep.pixelsWide) / rep.size.width, rep)
 }
 
 func save(_ image: CIImage, to url: URL) {
@@ -66,20 +67,24 @@ func windows(_ pid: Int32) -> [[String: Any]] {
     let all = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
     return all.filter { ($0[kCGWindowOwnerPID as String] as? Int32) == pid }
 }
+
+func printFrame(_ w: [String: Any]) {
+    let b = w[kCGWindowBounds as String] as! [String: CGFloat]
+    print(w[kCGWindowNumber as String]!, Int(b["X"]!), Int(b["Y"]!), Int(b["Width"]!), Int(b["Height"]!))
+}
 switch args[1] {
 case "window":
-    for w in windows(Int32(args[2])!) {
-        let b = w[kCGWindowBounds as String] as! [String: CGFloat]
-        if Int(b["Width"]!) == Int(args[3])! {
-            print(w[kCGWindowNumber as String]!, Int(b["X"]!), Int(b["Y"]!), Int(b["Width"]!), Int(b["Height"]!))
-            break
-        }
+    let widthMatch = windows(Int32(args[2])!).first {
+        Int(($0[kCGWindowBounds as String] as! [String: CGFloat])["Width"]!) == Int(args[3])!
     }
+    if let w = widthMatch { printFrame(w) }
 case "named":
-    for w in windows(Int32(args[2])!) where (w[kCGWindowName as String] as? String) == args[3] {
-        print(w[kCGWindowNumber as String]!)
-        break
+    if let w = windows(Int32(args[2])!).first(where: { ($0[kCGWindowName as String] as? String) == args[3] }) {
+        printFrame(w)
     }
+case "menubar":
+    let screen = NSScreen.screens[0]
+    print(Int(screen.frame.maxY - screen.visibleFrame.maxY))
 case "backdrop":
     let (x, y, w, h) = (Double(args[2])!, Double(args[3])!, Double(args[4])!, Double(args[5])!)
     let app = NSApplication.shared
@@ -87,20 +92,28 @@ case "backdrop":
     let screenHeight = NSScreen.screens[0].frame.height
     let window = NSWindow(contentRect: NSRect(x: x, y: screenHeight - y - h, width: w, height: h),
                           styleMask: .borderless, backing: .buffered, defer: false)
-    window.backgroundColor = .windowBackgroundColor
+    // Opaque, so nothing behind it shows through, and a shade darker than the
+    // panel, so its edge reads against the margin.
+    window.isOpaque = true
+    NSApp.effectiveAppearance.performAsCurrentDrawingAppearance {
+        window.backgroundColor = NSColor.windowBackgroundColor.usingColorSpace(.sRGB)!
+            .blended(withFraction: 0.07, of: .black)!.withAlphaComponent(1)
+    }
     window.level = .normal // front of the ordinary app windows, below the status-bar panel
     window.ignoresMouseEvents = true
     window.orderFrontRegardless()
     app.run()
-case "round":
-    let (url, image, scale) = load(args[2])
-    let radius = CGFloat(Double(args[3])!) * scale
-    let mask = roundedMask(extent: image.extent, rect: image.extent, radius: radius)
-    save(image.applyingFilter("CIBlendWithMask", parameters: [
-        kCIInputBackgroundImageKey: CIImage.empty(), kCIInputMaskImageKey: mask
-    ]).cropped(to: image.extent), to: url)
+case "pad":
+    let (url, image, scale, rep) = load(args[2])
+    let top = (CGFloat(Double(args[3])!) * scale).rounded()
+    // Sample the captured backdrop rather than recompute its color: the capture
+    // passes through the display's color management.
+    let fill = rep.colorAt(x: 4, y: 4)!.usingColorSpace(.sRGB)!
+    let canvas = CGRect(x: 0, y: 0, width: image.extent.width, height: image.extent.height + top)
+    let background = CIImage(color: CIColor(color: fill)!).cropped(to: canvas)
+    save(image.composited(over: background), to: url)
 case "blur":
-    let (url, image, scale) = load(args[2])
+    let (url, image, scale, _) = load(args[2])
     let (x, y, w, h, r) = (CGFloat(Double(args[3])!), CGFloat(Double(args[4])!), CGFloat(Double(args[5])!),
                            CGFloat(Double(args[6])!), CGFloat(Double(args[7])!))
     // Core Image's origin is bottom-left.
@@ -186,21 +199,33 @@ cleanup() {
 trap cleanup EXIT
 
 # The panel is Liquid Glass: a single-window capture renders it without what sits
-# behind it, as flat gray. Put a plain window-background backdrop under it, capture
-# that screen region, and cut the panel's rounded corners out again. Nothing else
-# on screen reaches the image.
-PANEL_RADIUS=12 # PanelHostController.cornerRadius in MenuBarPanel.swift
-capture_panel() {
-    read -r _ X Y W H < <(panel)
-    "$WORK/helper" backdrop $((X - 40)) $((Y - 40)) $((W + 80)) $((H + 80)) &
+# behind it, as flat gray. So every screenshot puts a plain backdrop under the
+# window and captures that screen region with a MARGIN of backdrop on each side,
+# window shadow included. The panel hangs right under the menu bar, so the top
+# margin is taken only down to the menu bar and the rest is filled in the
+# backdrop's color. Nothing else on screen reaches the image.
+MARGIN=20
+MENU_BAR=$(helper menubar)
+show_backdrop() {
+    "$WORK/helper" backdrop $(($1 - 2 * MARGIN)) $(($2 - 2 * MARGIN)) $(($3 + 4 * MARGIN)) $(($4 + 4 * MARGIN)) &
     BACKDROP_PID=$!
     sleep 1.2
+}
+# capture_region <name> <x> <y> <w> <h>: the window's frame in screen points.
+capture_region() {
+    local top=$((MARGIN < $3 - MENU_BAR ? MARGIN : $3 - MENU_BAR))
+    screencapture -x -R"$(($2 - MARGIN)),$(($3 - top)),$(($4 + 2 * MARGIN)),$(($5 + top + MARGIN))" "$OUT/$1.png"
+    kill "$BACKDROP_PID"; wait "$BACKDROP_PID" 2>/dev/null || true; BACKDROP_PID=""
+    [ "$top" -lt "$MARGIN" ] && helper pad "$OUT/$1.png" $((MARGIN - top))
+    echo "Captured $OUT/$1.png"
+}
+capture_panel() {
+    open_panel # a press can close it
+    read -r _ X Y W H < <(panel)
+    show_backdrop "$X" "$Y" "$W" "$H"
     open_panel
     read -r _ X Y W H < <(panel)
-    screencapture -x -R"$X,$Y,$W,$H" "$OUT/$1.png"
-    kill "$BACKDROP_PID"; wait "$BACKDROP_PID" 2>/dev/null || true; BACKDROP_PID=""
-    helper round "$OUT/$1.png" "$PANEL_RADIUS"
-    echo "Captured $OUT/$1.png"
+    capture_region "$1" "$X" "$Y" "$W" "$H"
 }
 
 # --- Screens ---------------------------------------------------------------------
@@ -232,7 +257,7 @@ read -r FX FY FW FH <<<"$FRAME"
 capture_panel camera-mode
 # The whole preview, border included: the video shows through the border's
 # antialiased edge. 12 pt matches its corner radius in CameraModeView.
-helper blur "$OUT/camera-mode.png" $((FX - PX)) $((FY - PY)) "$FW" "$FH" 12
+helper blur "$OUT/camera-mode.png" $((FX - PX + MARGIN)) $((FY - PY + MARGIN)) "$FW" "$FH" 12
 echo "Blurred the camera feed in $OUT/camera-mode.png"
 press Timer
 sleep 1
@@ -240,10 +265,10 @@ sleep 1
 open_panel
 press openSettings
 sleep 2
-SETTINGS_ID=$(helper named "$PID" "$APP_NAME Settings")
-[ -n "$SETTINGS_ID" ] || { echo "The settings window did not open."; exit 1; }
-ax 'set frontmost to true' >/dev/null # key window, so controls render active
+read -r SETTINGS_ID SX SY SW SH < <(helper named "$PID" "$APP_NAME Settings")
+[ -n "${SETTINGS_ID:-}" ] || { echo "The settings window did not open."; exit 1; }
+show_backdrop "$SX" "$SY" "$SW" "$SH"
+ax 'set frontmost to true' >/dev/null # above the backdrop, key so controls render active
 sleep 1
-screencapture -o -l"$SETTINGS_ID" "$OUT/settings.png"
-echo "Captured $OUT/settings.png"
+capture_region settings "$SX" "$SY" "$SW" "$SH"
 ax 'click button 1 of window 1' >/dev/null || true

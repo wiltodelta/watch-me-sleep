@@ -22,7 +22,6 @@ public final class MenuBarPanelWindow: NSPanel {
 private final class PanelHostController: NSViewController {
     private let host: NSHostingController<AnyView>
     private let fixedWidth: CGFloat
-    /// capture-screenshots.sh cuts the screenshot corners with the same radius.
     private let cornerRadius: CGFloat = 12
 
     init<Content: View>(rootView: Content, width: CGFloat) {

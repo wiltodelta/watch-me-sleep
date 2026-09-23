@@ -18,7 +18,7 @@ Animating the height change is an open HIG gap: with `sizingOptions` left on, Au
 
 `configure()` sets `isFloatingPanel` before `level`: the setter resets the level to `.floating`, which silently dropped the panel from `.statusBar` (25) to 3, under any other floating window.
 
-`capture-screenshots.sh` regenerates the README screenshots. A single-window capture renders Liquid Glass without what sits behind it, as flat gray, so the script puts a plain window-background backdrop under the panel, captures that screen region, and cuts the rounded corners back out. It drives the app only through Accessibility identifiers (`startTimer`, `stopTimer`, `openSettings`, `cameraPreview`), never synthetic clicks.
+`capture-screenshots.sh` regenerates the README screenshots. A single-window capture renders Liquid Glass without what sits behind it, as flat gray, so the script puts an opaque backdrop a shade darker than the panel under each window and captures the screen region with a 20 pt margin, shadow included. The panel hangs 1 pt below the menu bar, so the top margin is filled in the backdrop color instead of captured. The backdrop must be opaque: `underPageBackgroundColor` is translucent and let text from the windows behind it into the images. It drives the app only through Accessibility identifiers (`startTimer`, `stopTimer`, `openSettings`, `cameraPreview`), never synthetic clicks.
 
 The panel follows the system light/dark appearance. On macOS 26+ the system status-bar menus take the menu bar's appearance instead, so they can be dark while the system is light; do not copy that onto the panel (decided 2026-09-23).
 

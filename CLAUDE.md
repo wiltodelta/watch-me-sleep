@@ -6,7 +6,7 @@ You are a **principal Swift/macOS engineer** maintaining a menu bar app that aut
 
 - `./run.sh` - build and run for development
 - `./create-app.sh` - assemble the standalone .app bundle and re-sign it. The stable signing identity here is "Watch Me While I Fall Asleep Dev"; the TCC grant it preserves is Camera.
-- `./capture-screenshots.sh` - rebuild and regenerate `screenshots/` through Accessibility identifiers; needs Accessibility and Screen Recording for the terminal, turns the camera on briefly and blurs it.
+- `./capture-screenshots.sh` - rebuild and regenerate `screenshots/` through Accessibility identifiers; needs Accessibility and Screen Recording for the terminal, turns the camera on briefly and blurs it. Quit an installed copy first, or the single-instance check quits the fresh build.
 - `Package.swift` stamps a macOS 26 SDK version into the executable through `linkerSettings`; without it Xcode 27's Swift Build records the deployment target there and macOS runs the pre-Tahoe compatibility look. Check a binary with `vtool -show-build`: `docs/ui-architecture.md`.
 
 ## Test and lint
