@@ -49,7 +49,7 @@ jobs:
         if ! command -v swiftlint >/dev/null 2>&1; then
           brew install swiftlint
         fi
-        swiftlint lint
+        swiftlint lint --strict
 
     - name: Run Tests
       run: swift test

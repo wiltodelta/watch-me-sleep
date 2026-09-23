@@ -16,7 +16,8 @@ public class UpdateChecker: ObservableObject {
         case failed
     }
 
-    private static let latestReleaseURL = URL(string: "https://api.github.com/repos/wiltodelta/watch-me-sleep/releases/latest")!
+    private static let latestReleaseURL =
+        URL(string: "https://api.github.com/repos/wiltodelta/watch-me-sleep/releases/latest")!
     public let currentVersion: String
     private let skippedVersionKey = "skippedVersion"
 
