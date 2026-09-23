@@ -43,19 +43,29 @@ struct CameraModeView: View {
             )
             .animation(.easeInOut(duration: 0.2), value: sleepManager.isFaceDetected)
             .animation(.easeInOut(duration: 0.2), value: sleepManager.isSessionRunning)
+            // One labeled image for VoiceOver; `capture-screenshots.sh` also finds
+            // the feed by this label to blur it before a screenshot is published.
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Camera preview")
+            .accessibilityValue(sleepManager.isFaceDetected ? "Face detected" : "No face detected")
+            .accessibilityAddTraits(.isImage)
+            .accessibilityIdentifier("cameraPreview")
         }
     }
 
     private var introSection: some View {
         VStack(spacing: 6) {
-            Text("Camera Sleep Mode")
+            Text("Camera sleep mode")
                 .font(.headline)
 
+            // Say how the camera feed is used (HIG privacy: be transparent).
+            // Frames only reach Vision in memory; nothing records or uploads them.
             Text("Watch Me While I Fall Asleep gently watches for closed eyes and auto-starts a 30-minute timer. "
                 + "Open your eyes for a few seconds to cancel it. "
-                + "It will also auto-sleep after 1.5 hours of tracking.")
+                + "It will also auto-sleep after 1.5 hours of tracking. "
+                + "Video is analyzed on this Mac and is never recorded or sent anywhere.")
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -66,7 +76,7 @@ struct CameraModeView: View {
     private var statusCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Camera tracking")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.headline)
 
             statusRow(
                 icon: sleepManager.isCameraAuthorized ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
@@ -92,7 +102,8 @@ struct CameraModeView: View {
             )
 
             if !sleepManager.isCameraAuthorized {
-                Button("Open Privacy Settings") {
+                // Opens another app, so the title ends with an ellipsis (HIG).
+                Button("Open System Settings…") {
                     if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera") {
                         openURL(url)
                     }
@@ -107,18 +118,18 @@ struct CameraModeView: View {
     private var timerCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Sleep timer")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.headline)
 
             if timerManager.isTimerActive {
                 Text("Timer is active.")
-                    .font(.system(size: 12))
+                    .font(.callout)
                 Text("Time remaining: \(formatTime(timerManager.remainingTime))")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             } else {
                 Text("Timer is waiting for closed eyes.")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
         }
         .card()
@@ -126,16 +137,18 @@ struct CameraModeView: View {
 
     private func statusRow(icon: String, color: Color, title: String, detail: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
+            // Decorative: the title and detail already state the status.
             Image(systemName: icon)
-                .foregroundColor(color)
+                .foregroundStyle(color)
                 .frame(width: 18, height: 18)
                 .padding(.top, 1)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.callout.weight(.medium))
                 Text(detail)
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                     .lineLimit(nil)
                     .fixedSize(horizontal: false, vertical: true)
             }

@@ -7,10 +7,10 @@ hand, or switch on Camera mode and it starts the timer for you when it sees your
 eyes stay closed. Menu bar only, no Dock icon.
 
 <p align="center">
-  <img src="screenshots/manual-timer.png" alt="Watch Me While I Fall Asleep - Manual Mode" width="280">
-  <img src="screenshots/active-manual-timer.png" alt="Watch Me While I Fall Asleep - Active Timer" width="280">
-  <img src="screenshots/camera-mode.png" alt="Watch Me While I Fall Asleep - Camera Mode" width="280">
-  <img src="screenshots/settings.png" alt="Watch Me While I Fall Asleep - Settings" width="280">
+  <img src="screenshots/manual-timer.png" alt="Timer mode with duration presets" width="280">
+  <img src="screenshots/active-manual-timer.png" alt="A running timer with its countdown" width="280">
+  <img src="screenshots/camera-mode.png" alt="Camera mode with the video feed blurred" width="280">
+  <img src="screenshots/settings.png" alt="Settings window" width="280">
 </p>
 
 ## Features
@@ -44,9 +44,10 @@ Auto-start and system:
 
 ## Requirements
 
-- macOS 13 (Ventura) or later.
-- Apple Silicon or Intel Mac.
-- For building from source: Xcode 15 or later.
+- macOS 14 (Sonoma) or later. The three latest macOS releases are supported;
+  on macOS 26 (Tahoe) and later the UI uses Liquid Glass.
+- A Mac with Apple silicon. Intel Macs are not supported.
+- For building from source: Xcode 26 or later.
 
 ## Install
 
@@ -87,7 +88,7 @@ mv "Watch Me While I Fall Asleep.app" /Applications/
 ### Manual timer
 
 1. Click the moon icon and select **Timer**.
-2. Set a duration with the slider or a preset, then click **Start Timer**.
+2. Set a duration with the slider or a preset, then click **Start timer**.
 3. The icon fills in while the timer runs. Click it again to see the remaining
    time, add time, or stop.
 
@@ -112,16 +113,21 @@ way while a timer is already running or Camera mode is active.
 
 ## Settings
 
-Open Settings from the gear in the panel, or from the right-click menu.
+Open Settings from **Settings…** in the panel, from the right-click menu, or by
+opening the app again from Finder or Spotlight (useful if its menu bar icon is
+hidden).
 
 - **Auto-start when idle**: the nightly window, idle threshold, and timer length.
 - **Startup**: launch at login.
-- **Updates**: current version and a "Check for updates…" button.
+- **Updates**: current version, the latest check result, and a **Check for
+  updates** button; when a newer version exists, **Download** and **Skip this
+  version**.
 
 ## Updates
 
-The app checks GitHub Releases a few seconds after launch and offers to open the
-download page when a newer version is tagged. You can also check on demand from
+The app checks GitHub Releases a few seconds after launch. When a newer version
+is tagged, a **Get X.Y.Z…** link appears in the panel footer and in Settings >
+Updates; there is no pop-up at launch. You can also check on demand from
 Settings > Updates. It is a check-and-notify updater, not a silent installer: you
 download the new build and replace the app yourself.
 
@@ -136,14 +142,18 @@ download the new build and replace the app yourself.
   `pmset -g assertions`.
 - **Camera mode isn't working:** enable the app under System Settings > Privacy
   & Security > Camera, and make sure your face is visible and well-lit.
-- **No icon in the menu bar:** confirm you are on macOS 13 or later, then quit
-  and relaunch.
+- **No icon in the menu bar:** confirm you are on macOS 14 or later; on macOS 26
+  also check System Settings > Menu Bar > Allow in the Menu Bar. Opening the app
+  again shows its settings window either way.
 
 ## Building and releasing
 
 - `./run.sh` builds and runs for development.
 - `./create-app.sh` assembles the signed `.app` bundle.
 - `bash maintain.sh` runs SwiftLint, the tests, and a release build.
+- `./capture-screenshots.sh` rebuilds the app and regenerates the screenshots
+  above through Accessibility, blurring the camera feed. It needs Accessibility
+  and Screen Recording access for the terminal and turns the camera on briefly.
 
 Releases are automated: the app version comes from the git tag, and pushing a
 `vX.Y.Z` tag makes GitHub Actions build the app and publish a Release with the

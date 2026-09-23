@@ -93,10 +93,10 @@ public class TimerManager: ObservableObject {
             // Show alert to user
             DispatchQueue.main.async {
                 NSApp.setActivationPolicy(.regular)
-                NSApp.activate(ignoringOtherApps: true)
+                NSApp.activate()
 
                 let alert = NSAlert()
-                alert.messageText = "Sleep Failed"
+                alert.messageText = "Sleep failed"
                 alert.informativeText = "Unable to put the computer to sleep.\n\nError: \(error.localizedDescription)"
                 alert.alertStyle = .warning
                 alert.addButton(withTitle: "OK")

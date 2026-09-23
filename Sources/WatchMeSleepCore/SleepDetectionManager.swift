@@ -240,10 +240,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
             self?.handleLandmarks(request: request, error: error)
         }
 
-        // Use best revision if available
-        if #available(macOS 14.0, *) {
-            request.revision = VNDetectFaceLandmarksRequestRevision3
-        }
+        request.revision = VNDetectFaceLandmarksRequestRevision3
 
         do {
             // Perform with orientation for better accuracy
@@ -381,14 +378,14 @@ extension SleepDetectionManager {
         DispatchQueue.main.async {
             // Bring app to foreground to show alert
             NSApp.setActivationPolicy(.regular)
-            NSApp.activate(ignoringOtherApps: true)
+            NSApp.activate()
 
             let alert = NSAlert()
             alert.messageText = "Are you asleep?"
             alert.informativeText = "You have been in camera mode for 1.5 hours."
             alert.alertStyle = .informational
-            alert.addButton(withTitle: "Not Yet")
-            alert.addButton(withTitle: "Yes, Sleep Now")
+            alert.addButton(withTitle: "Not yet")
+            alert.addButton(withTitle: "Sleep now")
 
             // Create a custom label for countdown
             let countdownLabel = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 16))
@@ -429,10 +426,10 @@ extension SleepDetectionManager {
             NSApp.setActivationPolicy(.accessory)
 
             if response == .alertSecondButtonReturn {
-                // User chose "Yes, Sleep Now"
+                // User chose "Sleep now"
                 TimerManager.shared.sleepNow()
             } else if response == .alertFirstButtonReturn {
-                // User chose "Not Yet" - restart timer
+                // User chose "Not yet" - restart timer
                 self.startActivityCheckTimer()
             } else {
                 // Alert was closed by timer (auto-sleep)

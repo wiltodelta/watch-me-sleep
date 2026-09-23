@@ -12,11 +12,13 @@ public struct ContentView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
+            // A text-only segmented control needs no introductory label (HIG).
             Picker("Mode", selection: $selectedMode) {
                 Text("Timer").tag(TimerMode.manual)
                 Text("Camera").tag(TimerMode.camera)
             }
             .pickerStyle(.segmented)
+            .labelsHidden()
             .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, 12)
@@ -42,8 +44,8 @@ public struct ContentView: View {
             // Common settings footer
             CommonSettingsView()
         }
-        // The panel provides a vibrant NSVisualEffectView backing, so the content
-        // stays transparent and lets that material show through.
+        // The panel provides the material backing, so the content stays
+        // transparent and lets it show through.
         .onAppear {
             sleepManager.setCameraModeEnabled(selectedMode == .camera)
 
@@ -56,7 +58,7 @@ public struct ContentView: View {
                 selectedMode = .manual
             }
         }
-        .onChange(of: selectedMode) { newMode in
+        .onChange(of: selectedMode) { _, newMode in
             // Stop active timer when switching modes
             if timerManager.isTimerActive {
                 timerManager.stopTimer()
@@ -76,12 +78,26 @@ enum TimerMode {
 }
 
 struct CommonSettingsView: View {
+    @StateObject private var updateChecker = UpdateChecker.shared
+    @Environment(\.openURL) private var openURL
+
     var body: some View {
         HStack(spacing: 16) {
+            // Opens a window, so the title ends with an ellipsis (HIG).
             Button {
                 openAppSettings()
             } label: {
-                Label("Settings", systemImage: "gearshape")
+                Label("Settings…", systemImage: "gearshape")
+            }
+            .accessibilityIdentifier("openSettings")
+
+            if let update = updateChecker.availableUpdate {
+                Button {
+                    openURL(update.url)
+                } label: {
+                    Label("Get \(update.version)…", systemImage: "arrow.down.circle")
+                }
+                .help("Open the download page for version \(update.version)")
             }
 
             Spacer()
@@ -91,7 +107,7 @@ struct CommonSettingsView: View {
             }
         }
         .buttonStyle(.plain)
-        .foregroundColor(.secondary)
+        .foregroundStyle(.secondary)
         .font(.callout)
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
@@ -102,6 +118,7 @@ struct InactiveTimerView: View {
     @Binding var selectedHours: Double
 
     private let presetHours: [Double] = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6]
+    private let range: ClosedRange<Double> = 0.25...12
 
     var body: some View {
         VStack(spacing: 0) {
@@ -109,53 +126,79 @@ struct InactiveTimerView: View {
             VStack(spacing: 12) {
                 Text(formatHours(selectedHours))
                     .font(.system(size: 48, weight: .regular, design: .rounded))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
 
-                Slider(value: $selectedHours, in: 0.25...12, step: 0.25)
+                durationSlider
+                    .labelsHidden()
+                    .accessibilityValue(spokenDuration(hours: selectedHours))
                     .controlSize(.small)
 
                 HStack {
                     Text("15 min")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
                     Spacer()
                     Text("12 hours")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
                 }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             }
             .padding(20)
             .padding(.top, 12)
 
             Divider()
 
-                // Presets
-                VStack(spacing: 8) {
-                    HStack(spacing: 8) {
-                        ForEach(Array(presetHours.prefix(4)), id: \.self) { hours in
-                            PresetButton(hours: hours, selectedHours: $selectedHours)
-                        }
-                    }
-                    HStack(spacing: 8) {
-                        ForEach(Array(presetHours.suffix(4)), id: \.self) { hours in
-                            PresetButton(hours: hours, selectedHours: $selectedHours)
-                        }
+            // Presets
+            Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                GridRow {
+                    ForEach(presetHours.prefix(4), id: \.self) { hours in
+                        PresetButton(hours: hours, selectedHours: $selectedHours)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
+                GridRow {
+                    ForEach(presetHours.suffix(4), id: \.self) { hours in
+                        PresetButton(hours: hours, selectedHours: $selectedHours)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
 
             Divider()
 
             // Start button
-            Button("Start Timer") {
+            Button("Start timer") {
                 TimerManager.shared.startTimer(hours: selectedHours)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .keyboardShortcut(.defaultAction)
+            .accessibilityIdentifier("startTimer")
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
+        }
+    }
+
+    /// Tick marks on whole hours only (HIG: tick marks add clarity). macOS 26
+    /// can place them, but a `step` still draws a dot per step, so there the
+    /// quarter-hour snapping moves into the binding. Earlier releases draw one
+    /// tick per step.
+    @ViewBuilder private var durationSlider: some View {
+        if #available(macOS 26.0, *) {
+            let snapped = Binding(
+                get: { selectedHours },
+                set: { selectedHours = ($0 * 4).rounded() / 4 }
+            )
+            Slider(value: snapped, in: range) {
+                Text("Timer length")
+            } ticks: {
+                SliderTickContentForEach((1...12).map(Double.init), id: \.self) { hour in
+                    SliderTick(hour)
+                }
+            }
+        } else {
+            Slider(value: $selectedHours, in: range, step: 0.25) {
+                Text("Timer length")
+            }
         }
     }
 
@@ -181,18 +224,21 @@ struct PresetButton: View {
     let hours: Double
     @Binding var selectedHours: Double
 
+    private var isSelected: Bool { selectedHours == hours }
+
     var body: some View {
+        // The selected preset changes style, not just tint, so the choice does
+        // not rely on color alone (HIG); two prominent buttons per view at most.
         Button {
             selectedHours = hours
         } label: {
             Text(formatHoursShort(hours))
-                .font(.system(size: 11))
                 .frame(maxWidth: .infinity)
-                .frame(height: 24)
         }
-        .buttonStyle(.bordered)
-        .tint(selectedHours == hours ? .accentColor : .gray)
-        .controlSize(.small)
+        .modifier(PresetStyle(isSelected: isSelected))
+        .controlSize(.regular)
+        .accessibilityLabel(spokenDuration(hours: hours))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private func formatHoursShort(_ hours: Double) -> String {
@@ -208,53 +254,56 @@ struct PresetButton: View {
     }
 }
 
+private struct PresetStyle: ViewModifier {
+    let isSelected: Bool
+
+    func body(content: Content) -> some View {
+        if isSelected {
+            content.buttonStyle(.borderedProminent)
+        } else {
+            content.buttonStyle(.bordered)
+        }
+    }
+}
+
 struct ActiveTimerView: View {
     @StateObject private var timerManager = TimerManager.shared
 
+    private var elapsedFraction: Double {
+        guard timerManager.totalTime > 0 else { return 0 }
+        return 1 - timerManager.remainingTime / timerManager.totalTime
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Circular progress
+            // Circular progress: the track fills clockwise as time elapses (HIG).
             VStack(spacing: 16) {
                 ZStack {
-                    // Background circle with material
                     Circle()
-                        .fill(.ultraThinMaterial)
-                        .frame(width: 150, height: 150)
-                        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                        .stroke(.quaternary, lineWidth: 12)
 
                     Circle()
-                        .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 12)
-                        .frame(width: 140, height: 140)
-
-                    Circle()
-                        .trim(from: 0, to: CGFloat(timerManager.remainingTime / timerManager.totalTime))
-                        .stroke(
-                            LinearGradient(
-                                gradient: Gradient(colors: [Color.accentColor, Color.accentColor.opacity(0.7)]),
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            style: StrokeStyle(lineWidth: 12, lineCap: .round)
-                        )
-                        .frame(width: 140, height: 140)
+                        .trim(from: 0, to: elapsedFraction)
+                        .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 12, lineCap: .round))
                         .rotationEffect(.degrees(-90))
-                        .shadow(color: Color.accentColor.opacity(0.3), radius: 6, x: 0, y: 3)
 
                     VStack(spacing: 2) {
                         Text(formatTime(timerManager.remainingTime))
-                            .font(.system(size: 26, weight: .medium, design: .rounded))
+                            .font(.system(.largeTitle, design: .rounded).weight(.medium))
                             .monospacedDigit()
                         Text("remaining")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
+                .frame(width: 140, height: 140)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Time remaining")
+                .accessibilityValue(formatTime(timerManager.remainingTime))
 
-                VStack(spacing: 2) {
-                    Text("Sleep at \(formatTargetTime(timerManager.remainingTime))")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                }
+                Text("Sleep at \(formatTargetTime(timerManager.remainingTime))")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
             .padding(20)
             .padding(.top, 12)
@@ -262,16 +311,17 @@ struct ActiveTimerView: View {
             Divider()
 
             // Add time buttons
-            VStack(spacing: 8) {
-                HStack(spacing: 8) {
-                    ForEach([5, 15, 30, 60], id: \.self) { minutes in
-                        Button("+\(minutes)m") {
-                            timerManager.addTime(minutes: minutes)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .frame(maxWidth: .infinity)
+            HStack(spacing: 12) {
+                ForEach([5, 15, 30, 60], id: \.self) { minutes in
+                    Button {
+                        timerManager.addTime(minutes: minutes)
+                    } label: {
+                        Text("+\(minutes)m")
+                            .frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                    .accessibilityLabel("Add \(minutes) minutes")
                 }
             }
             .padding(.horizontal, 20)
@@ -279,14 +329,14 @@ struct ActiveTimerView: View {
 
             Divider()
 
-            // Cancel button
-            Button("Stop Timer") {
+            // Stopping a timer destroys no data, so it takes no destructive red (HIG).
+            Button("Stop timer") {
                 timerManager.stopTimer()
             }
             .buttonStyle(.bordered)
-            .tint(.red)
             .controlSize(.large)
             .keyboardShortcut(.cancelAction)
+            .accessibilityIdentifier("stopTimer")
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
         }
@@ -299,10 +349,26 @@ struct ActiveTimerView: View {
         return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
 
-    private func formatTargetTime(_ remainingTime: TimeInterval) -> String {
-        let targetDate = Date().addingTimeInterval(remainingTime)
+    // Created once: the view redraws every second while the timer runs.
+    private static let targetTimeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
-        return formatter.string(from: targetDate)
+        return formatter
+    }()
+
+    private func formatTargetTime(_ remainingTime: TimeInterval) -> String {
+        Self.targetTimeFormatter.string(from: Date().addingTimeInterval(remainingTime))
     }
+}
+
+private let spokenDurationFormatter: DateComponentsFormatter = {
+    let formatter = DateComponentsFormatter()
+    formatter.allowedUnits = [.hour, .minute]
+    formatter.unitsStyle = .full
+    return formatter
+}()
+
+/// A duration as VoiceOver should read it, e.g. "1 hour, 30 minutes".
+func spokenDuration(hours: Double) -> String {
+    spokenDurationFormatter.string(from: hours * 3600) ?? ""
 }

@@ -8,9 +8,16 @@ struct WatchMeSleepApp: App {
     var body: some Scene {
         // The app is a menu-bar accessory; all UI lives in the status-bar panel
         // and a settings window the delegate manages. This scene just satisfies the
-        // App requirement.
+        // App requirement; its App-menu item is rerouted so Settings… (⌘,) opens
+        // the real settings window, as the HIG expects, not this empty scene.
         Settings {
             EmptyView()
+        }
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") { openAppSettings() }
+                    .keyboardShortcut(",")
+            }
         }
     }
 }
@@ -59,10 +66,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
             button.action = #selector(togglePanel)
             button.target = self
+            // VoiceOver reads the image-only button by this label (HIG: provide an
+            // accessibility label for every icon); the countdown is its value.
+            button.setAccessibilityLabel("Watch Me While I Fall Asleep")
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
 
-        // Create the arrowless dropdown panel
+        // Create the arrowless dropdown panel. capture-screenshots.sh finds it by
+        // this width.
         panel = MenuBarPanelController(rootView: ContentView(), size: NSSize(width: 360, height: 420))
 
         // Update icon when timer changes
@@ -99,8 +110,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Check for updates on launch (after 3 seconds delay)
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-            self?.updateChecker.checkForUpdates(showNoUpdateAlert: false)
+            self?.updateChecker.checkForUpdates(userInitiated: false)
         }
+    }
+
+    /// The status item can be hidden by the system or by the person, so relaunching
+    /// the app (Finder, Spotlight) must still reach its UI (HIG: avoid relying on
+    /// the presence of menu bar extras).
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showSettingsWindow()
+        return false
     }
 
     @objc func togglePanel() {
@@ -125,14 +144,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
 
         if timerManager.isTimerActive {
-            let stop = NSMenuItem(title: "Stop Timer", action: #selector(quickStopTimer), keyEquivalent: "")
+            let stop = NSMenuItem(title: "Stop timer", action: #selector(quickStopTimer), keyEquivalent: "")
             stop.target = self
+            setMenuSymbol("stop.circle", on: stop)
             menu.addItem(stop)
         } else {
-            let startItem = NSMenuItem(title: "Start Timer", action: nil, keyEquivalent: "")
+            let startItem = NSMenuItem(title: "Start timer", action: nil, keyEquivalent: "")
+            setMenuSymbol("timer", on: startItem)
             let submenu = NSMenu()
             let presets: [(String, Double)] = [
-                ("15 Minutes", 0.25), ("30 Minutes", 0.5), ("1 Hour", 1.0), ("1.5 Hours", 1.5), ("2 Hours", 2.0)
+                ("15 minutes", 0.25), ("30 minutes", 0.5), ("1 hour", 1.0), ("1.5 hours", 1.5), ("2 hours", 2.0)
             ]
             for (title, hours) in presets {
                 let item = NSMenuItem(title: title, action: #selector(quickStartTimer(_:)), keyEquivalent: "")
@@ -148,14 +169,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let settings = NSMenuItem(title: "Settings…", action: #selector(showSettingsWindow), keyEquivalent: ",")
         settings.target = self
+        setMenuSymbol("gearshape", on: settings)
         menu.addItem(settings)
 
-        let quit = NSMenuItem(title: "Quit Watch Me While I Fall Asleep",
-                              action: #selector(quitApp), keyEquivalent: "q")
-        quit.target = self
-        menu.addItem(quit)
+        // The standard selector lets macOS 26+ give the item its system icon.
+        menu.addItem(NSMenuItem(title: "Quit Watch Me While I Fall Asleep",
+                                action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
+    }
+
+    /// macOS 26+ menus show icons for common actions; `terminate:` gets its icon
+    /// from the system, so the other top-level items need one to keep the
+    /// column aligned. Earlier releases draw menus without icons.
+    private func setMenuSymbol(_ name: String, on item: NSMenuItem) {
+        if #available(macOS 26.0, *) {
+            item.image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
+        }
     }
 
     @objc private func quickStartTimer(_ sender: NSMenuItem) {
@@ -165,10 +195,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func quickStopTimer() {
         timerManager.stopTimer()
-    }
-
-    @objc private func quitApp() {
-        NSApplication.shared.terminate(nil)
     }
 
     private var settingsWindow: NSWindow?
@@ -191,14 +217,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Become a regular app while settings are open so the window reliably comes
         // to the front; revert to accessory (no dock icon) when it closes.
         NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
         settingsWindow?.makeKeyAndOrderFront(nil)
     }
 
     private func updateStatusItem() {
         if let button = statusItem.button {
             let iconName: String
-            var titleText = ""
+            var countdown = ""
 
             if timerManager.isTimerActive {
                 iconName = "MenuIconActive"
@@ -209,9 +235,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 let seconds = time % 60
 
                 if hours > 0 {
-                    titleText = String(format: " %d:%02d:%02d", hours, minutes, seconds)
+                    countdown = String(format: "%d:%02d:%02d", hours, minutes, seconds)
                 } else {
-                    titleText = String(format: " %02d:%02d", minutes, seconds)
+                    countdown = String(format: "%02d:%02d", minutes, seconds)
                 }
             } else {
                 iconName = "MenuIcon"
@@ -224,9 +250,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
 
             let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-            button.attributedTitle = NSAttributedString(string: titleText, attributes: [.font: font])
+            let title = countdown.isEmpty ? "" : " " + countdown
+            button.attributedTitle = NSAttributedString(string: title, attributes: [.font: font])
             button.imagePosition = .imageLeft
             button.toolTip = statusTooltip()
+            button.setAccessibilityValue(countdown.isEmpty ? nil : "\(countdown) remaining")
         }
     }
 

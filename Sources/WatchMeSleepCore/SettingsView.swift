@@ -12,6 +12,7 @@ public struct SettingsView: View {
     @StateObject private var autoActivation = AutoActivationManager.shared
     @StateObject private var launchManager = LaunchAtLoginManager.shared
     @StateObject private var updateChecker = UpdateChecker.shared
+    @Environment(\.openURL) private var openURL
 
     private let startHourOptions = [20, 21, 22, 23, 0, 1, 2]
     private let endHourOptions = [5, 6, 7, 8, 9, 10]
@@ -19,10 +20,6 @@ public struct SettingsView: View {
     private let durationOptions: [Double] = [0.5, 1, 1.5, 2, 3]
 
     public init() {}
-
-    private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
-    }
 
     public var body: some View {
         Form {
@@ -79,17 +76,49 @@ public struct SettingsView: View {
 
     private var updatesSection: some View {
         Section {
-            LabeledContent("Version", value: appVersion)
-            Button {
-                updateChecker.checkForUpdates(showNoUpdateAlert: true)
-            } label: {
-                Text(updateChecker.isCheckingForUpdates ? "Checking…" : "Check for updates…")
+            LabeledContent("Version", value: updateChecker.currentVersion)
+            // The result shows inline rather than in an alert: the HIG says to avoid
+            // alerts that merely inform.
+            LabeledContent("Status") {
+                HStack(spacing: 6) {
+                    if updateChecker.state == .checking {
+                        ProgressView().controlSize(.small)
+                    }
+                    Text(updateStatus)
+                }
             }
-            .disabled(updateChecker.isCheckingForUpdates)
+            if let update = updateChecker.availableUpdate {
+                HStack {
+                    // Opens another app, so the title ends with an ellipsis.
+                    Button("Download \(update.version)…") {
+                        openURL(update.url)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Button("Skip this version") {
+                        updateChecker.skipAvailableVersion()
+                    }
+                }
+            } else {
+                Button("Check for updates") {
+                    updateChecker.checkForUpdates(userInitiated: true)
+                }
+                .disabled(updateChecker.state == .checking)
+            }
         } header: {
             Text("Updates")
         } footer: {
-            Text("Checks GitHub for a newer version on launch and offers to open the download page.")
+            Text("Checks GitHub for a newer version on launch and shows it here and in the menu bar panel.")
+        }
+    }
+
+    private var updateStatus: String {
+        switch updateChecker.state {
+        case .idle: return "Not checked yet"
+        case .checking: return "Checking…"
+        case .upToDate: return "Up to date"
+        case .available(let version, _): return "Version \(version) is available"
+        case .skipped(let version): return "Version \(version) skipped"
+        case .failed: return "Couldn’t reach GitHub. Try again later."
         }
     }
 

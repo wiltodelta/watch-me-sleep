@@ -9,45 +9,21 @@ public final class MenuBarPanelWindow: NSPanel {
     public override var canBecomeMain: Bool { false }
 }
 
-/// Near-opaque window-background tint laid over the vibrancy. The public `.menu`
-/// material lets more of the backdrop through than a real NSMenu, so this keeps
-/// the panel bright over dark windows; it re-resolves its colour on light/dark
-/// switches so the tint never goes stale.
-private final class TintView: NSView {
-    private let alpha: CGFloat
-    init(alpha: CGFloat) {
-        self.alpha = alpha
-        super.init(frame: .zero)
-        wantsLayer = true
-        applyColor()
-    }
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        applyColor()
-    }
-
-    private func applyColor() {
-        effectiveAppearance.performAsCurrentDrawingAppearance {
-            layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(alpha).cgColor
-        }
-    }
-}
-
-/// Hosts the SwiftUI content over an AppKit vibrant, tinted, rounded backing.
+/// Hosts the SwiftUI content over an AppKit rounded backing: Liquid Glass on
+/// macOS 26+, the standard popover material before it.
 ///
-/// The vibrancy and tint are AppKit siblings *behind* the SwiftUI hosting view,
-/// deliberately kept out of the measured SwiftUI tree — an `NSVisualEffectView`
-/// embedded inside a self-sizing `NSHostingController` recurses through Auto
-/// Layout and overflows the stack. The window height is driven from the inner
-/// content's exact `sizeThatFits` (its `preferredContentSize` undercounts tall
-/// content and clipped the footer), so the panel resizes to fit as the content
-/// changes between timer and camera modes.
+/// The backing stays at the AppKit level, deliberately kept out of the measured
+/// SwiftUI tree — an `NSVisualEffectView` embedded inside a self-sizing
+/// `NSHostingController` recurses through Auto Layout and overflows the stack.
+/// The window height is driven from the inner content's exact `sizeThatFits`
+/// (its `preferredContentSize` undercounts tall content and clipped the
+/// footer), so the panel resizes to fit as the content changes between timer
+/// and camera modes.
 private final class PanelHostController: NSViewController {
     private let host: NSHostingController<AnyView>
     private let fixedWidth: CGFloat
+    /// capture-screenshots.sh cuts the screenshot corners with the same radius.
+    private let cornerRadius: CGFloat = 12
 
     init<Content: View>(rootView: Content, width: CGFloat) {
         // Pin the width so only the height is dynamic; without a fixed width the
@@ -63,7 +39,7 @@ private final class PanelHostController: NSViewController {
     override func loadView() {
         let clip = NSView()
         clip.wantsLayer = true
-        clip.layer?.cornerRadius = 12
+        clip.layer?.cornerRadius = cornerRadius
         clip.layer?.cornerCurve = .continuous
         clip.layer?.masksToBounds = true
         view = clip
@@ -72,15 +48,27 @@ private final class PanelHostController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        let effect = NSVisualEffectView()
-        effect.material = .menu
-        effect.blendingMode = .behindWindow
-        effect.state = .active
-
-        let tint = TintView(alpha: 0.82)
-
         addChild(host)
-        for sub in [effect, tint, host.view] {
+        let layers: [NSView]
+        if #available(macOS 26.0, *) {
+            // Liquid Glass, as the system menus draw it. Its content view is
+            // AppKit-level, so the hosting view stays outside the measured SwiftUI
+            // tree. As the window's root view the glass also drew a square rim
+            // along its bounds; inside the rounded clip that rim is cut away.
+            let glass = NSGlassEffectView()
+            glass.cornerRadius = cornerRadius
+            glass.contentView = host.view
+            layers = [glass]
+        } else {
+            // Pre-Tahoe: the material named for this surface, not one picked for
+            // its color (HIG materials), behind the hosting view.
+            let effect = NSVisualEffectView()
+            effect.material = .popover
+            effect.blendingMode = .behindWindow
+            effect.state = .active
+            layers = [effect, host.view]
+        }
+        for sub in layers {
             sub.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(sub)
             NSLayoutConstraint.activate([
@@ -90,7 +78,6 @@ private final class PanelHostController: NSViewController {
                 sub.bottomAnchor.constraint(equalTo: view.bottomAnchor)
             ])
         }
-
         resizeToFitContent()
     }
 
@@ -151,8 +138,9 @@ public final class MenuBarPanelController {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
-        panel.level = .statusBar
+        // `isFloatingPanel` resets the level to `.floating`, so it goes first.
         panel.isFloatingPanel = true
+        panel.level = .statusBar
         panel.hidesOnDeactivate = false
         panel.animationBehavior = .none
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]

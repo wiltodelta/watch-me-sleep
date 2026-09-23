@@ -1,14 +1,26 @@
 import Foundation
-import AppKit
 
+/// Checks GitHub for a newer release and publishes the result for the UI to show
+/// inline. It never raises an alert: the HIG says to avoid alerts at app start and
+/// alerts that merely inform, so an available update surfaces in the panel footer
+/// and the settings window instead.
 public class UpdateChecker: ObservableObject {
     public static let shared = UpdateChecker()
 
-    private let githubRepo = "wiltodelta/watch-me-sleep"
-    private let currentVersion: String
+    public enum State: Equatable {
+        case idle
+        case checking
+        case upToDate
+        case available(version: String, url: URL)
+        case skipped(version: String)
+        case failed
+    }
+
+    private static let latestReleaseURL = URL(string: "https://api.github.com/repos/wiltodelta/watch-me-sleep/releases/latest")!
+    public let currentVersion: String
     private let skippedVersionKey = "skippedVersion"
 
-    @Published public var isCheckingForUpdates = false
+    @Published public private(set) var state: State = .idle
 
     private init() {
         // Read version from Bundle (Info.plist)
@@ -20,74 +32,81 @@ public class UpdateChecker: ObservableObject {
         }
     }
 
-    public func checkForUpdates(showNoUpdateAlert: Bool = false) {
-        guard !isCheckingForUpdates else { return }
-
-        isCheckingForUpdates = true
-
-        let urlString = "https://api.github.com/repos/\(githubRepo)/releases/latest"
-        guard let url = URL(string: urlString) else {
-            isCheckingForUpdates = false
-            return
+    /// The update the panel footer should offer, if any.
+    public var availableUpdate: (version: String, url: URL)? {
+        if case let .available(version, url) = state {
+            return (version, url)
         }
+        return nil
+    }
 
-        var request = URLRequest(url: url)
+    /// `userInitiated` checks come from the settings window: they report every
+    /// outcome and ignore a skipped version. Automatic checks only ever surface an
+    /// update that has not been skipped.
+    public func checkForUpdates(userInitiated: Bool) {
+        guard state != .checking else { return }
+
+        let previous = state
+        state = .checking
+
+        var request = URLRequest(url: Self.latestReleaseURL)
         request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
 
         URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
-            guard let self = self else { return }
-
-            defer {
-                DispatchQueue.main.async {
-                    self.isCheckingForUpdates = false
-                }
-            }
-
-            if let error = error {
+            guard let self else { return }
+            if let error {
                 NSLog("Update check failed: \(error.localizedDescription)")
-                if showNoUpdateAlert {
-                    self.showErrorAlert()
-                }
-                return
             }
-
-            guard let data = data else {
-                if showNoUpdateAlert {
-                    self.showErrorAlert()
-                }
-                return
-            }
-
-            do {
-                let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
-                self.handleRelease(release, showNoUpdateAlert: showNoUpdateAlert)
-            } catch {
-                NSLog("Failed to parse release info: \(error.localizedDescription)")
-                if showNoUpdateAlert {
-                    self.showErrorAlert()
-                }
+            let next = Self.resolve(
+                data: data,
+                userInitiated: userInitiated,
+                previous: previous,
+                currentVersion: self.currentVersion,
+                skippedVersion: UserDefaults.standard.string(forKey: self.skippedVersionKey)
+            )
+            DispatchQueue.main.async {
+                self.state = next
             }
         }.resume()
     }
 
-    private func handleRelease(_ release: GitHubRelease, showNoUpdateAlert: Bool) {
-        let latestVersion = release.tagName.replacingOccurrences(of: "v", with: "")
+    /// Hide the offered version until a newer one ships.
+    public func skipAvailableVersion() {
+        guard let update = availableUpdate else { return }
+        UserDefaults.standard.set(update.version, forKey: skippedVersionKey)
+        state = .skipped(version: update.version)
+    }
 
-        if Self.isNewerVersion(latestVersion, than: currentVersion) {
-            // Honor a previously skipped version, but only for automatic checks.
-            // A manual "Check for Updates" always surfaces the available version.
-            if !showNoUpdateAlert,
-               UserDefaults.standard.string(forKey: skippedVersionKey) == latestVersion {
-                return
-            }
-            DispatchQueue.main.async {
-                self.showUpdateAlert(version: latestVersion, url: release.htmlURL, releaseNotes: release.body)
-            }
-        } else if showNoUpdateAlert {
-            DispatchQueue.main.async {
-                self.showNoUpdateAvailableAlert()
-            }
+    /// Maps a GitHub "latest release" response to the next state. `data` is nil
+    /// when the request failed. A failure an automatic check hits keeps the
+    /// previous state rather than showing an error nobody asked for.
+    static func resolve(
+        data: Data?,
+        userInitiated: Bool,
+        previous: State,
+        currentVersion: String,
+        skippedVersion: String?
+    ) -> State {
+        guard let data else { return userInitiated ? .failed : previous }
+        let release: GitHubRelease
+        do {
+            release = try JSONDecoder().decode(GitHubRelease.self, from: data)
+        } catch {
+            NSLog("Failed to read release info: \(error)")
+            return userInitiated ? .failed : previous
         }
+        guard let pageURL = URL(string: release.htmlURL) else {
+            return userInitiated ? .failed : previous
+        }
+
+        let latestVersion = release.tagName.replacingOccurrences(of: "v", with: "")
+        guard isNewerVersion(latestVersion, than: currentVersion) else {
+            return .upToDate
+        }
+        if !userInitiated, skippedVersion == latestVersion {
+            return .skipped(version: latestVersion)
+        }
+        return .available(version: latestVersion, url: pageURL)
     }
 
     static func isNewerVersion(_ version1: String, than version2: String) -> Bool {
@@ -107,68 +126,6 @@ public class UpdateChecker: ObservableObject {
 
         return false
     }
-
-    private func showUpdateAlert(version: String, url: String, releaseNotes: String?) {
-        let alert = NSAlert()
-        alert.messageText = "Update Available"
-        alert.informativeText = "Watch Me While I Fall Asleep \(version) is now available. You have \(currentVersion)."
-            + "\n\nWould you like to download it?"
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "Download")
-        alert.addButton(withTitle: "Skip This Version")
-        alert.addButton(withTitle: "Remind Me Later")
-
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-
-        let response = alert.runModal()
-
-        NSApp.setActivationPolicy(.accessory)
-
-        switch response {
-        case .alertFirstButtonReturn: // Download
-            if let downloadURL = URL(string: url) {
-                NSWorkspace.shared.open(downloadURL)
-            }
-        case .alertSecondButtonReturn: // Skip
-            UserDefaults.standard.set(version, forKey: skippedVersionKey)
-        default: // Remind Me Later
-            break
-        }
-    }
-
-    private func showNoUpdateAvailableAlert() {
-        let alert = NSAlert()
-        alert.messageText = "You're up to date!"
-        alert.informativeText = "Watch Me While I Fall Asleep \(currentVersion) is currently the newest "
-            + "version available."
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "OK")
-
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-
-        alert.runModal()
-
-        NSApp.setActivationPolicy(.accessory)
-    }
-
-    private func showErrorAlert() {
-        DispatchQueue.main.async {
-            let alert = NSAlert()
-            alert.messageText = "Update Check Failed"
-            alert.informativeText = "Could not check for updates. Please try again later or check manually on GitHub."
-            alert.alertStyle = .warning
-            alert.addButton(withTitle: "OK")
-
-            NSApp.setActivationPolicy(.regular)
-            NSApp.activate(ignoringOtherApps: true)
-
-            alert.runModal()
-
-            NSApp.setActivationPolicy(.accessory)
-        }
-    }
 }
 
 // MARK: - GitHub API Models
@@ -176,11 +133,9 @@ public class UpdateChecker: ObservableObject {
 private struct GitHubRelease: Codable {
     let tagName: String
     let htmlURL: String
-    let body: String?
 
     enum CodingKeys: String, CodingKey {
         case tagName = "tag_name"
         case htmlURL = "html_url"
-        case body
     }
 }

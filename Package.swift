@@ -1,10 +1,14 @@
 // swift-tools-version: 5.9
 import PackageDescription
 
+/// Oldest supported macOS. `create-app.sh` reads this line for the bundle's
+/// `LSMinimumSystemVersion`.
+let deploymentTarget = "14.0"
+
 let package = Package(
     name: "WatchMeSleep",
     platforms: [
-        .macOS(.v13)
+        .macOS(deploymentTarget)
     ],
     products: [
         .executable(
@@ -20,7 +24,17 @@ let package = Package(
         .executableTarget(
             name: "WatchMeSleep",
             dependencies: ["WatchMeSleepCore"],
-            path: "Sources/WatchMeSleep"
+            path: "Sources/WatchMeSleep",
+            // Swift Build, SwiftPM's default build system since Xcode 27, records
+            // the deployment target as the SDK version in LC_BUILD_VERSION, and
+            // macOS then runs the app in its pre-Tahoe compatibility look (no
+            // Liquid Glass controls, untinted buttons, an empty Settings window at
+            // launch). Stamp an SDK version instead: the manifest cannot ask
+            // `xcrun`, so this is the floor that turns the Tahoe look on.
+            linkerSettings: [
+                .unsafeFlags(["-Xlinker", "-platform_version", "-Xlinker", "macos",
+                              "-Xlinker", deploymentTarget, "-Xlinker", "26.0"])
+            ]
         ),
         .testTarget(
             name: "WatchMeSleepTests",

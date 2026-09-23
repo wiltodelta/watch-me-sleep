@@ -29,7 +29,10 @@ if [ -f "./generate-assets.sh" ]; then
 fi
 
 echo "Building Watch Me While I Fall Asleep for release..."
-swift build -c release
+# Apple silicon only: no x86_64 slice is built. The SDK version stamp lives in
+# Package.swift, so every build path gets it.
+MACOS_MIN=$(sed -n 's/^let deploymentTarget = "\(.*\)"$/\1/p' Package.swift)
+swift build -c release --arch arm64
 
 if [ $? -ne 0 ]; then
     echo "Build failed!"
@@ -83,7 +86,7 @@ cat > "$APP_DIR/Contents/Info.plist" << EOF
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>13.0</string>
+	<string>$MACOS_MIN</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
