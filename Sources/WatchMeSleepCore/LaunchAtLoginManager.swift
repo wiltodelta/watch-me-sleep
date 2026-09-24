@@ -1,47 +1,42 @@
 import Foundation
+import os
 import ServiceManagement
 
-public class LaunchAtLoginManager: ObservableObject {
+/// "Launch at login" through SMAppService, which is the only record of whether it
+/// is on (a second copy in the defaults could drift from what macOS does).
+@MainActor
+public final class LaunchAtLoginManager: ObservableObject {
     public static let shared = LaunchAtLoginManager()
 
-    @Published public var isEnabled: Bool {
-        didSet {
-            UserDefaults.standard.set(isEnabled, forKey: "LaunchAtLogin")
-            if isEnabled {
-                enableLaunchAtLogin()
-            } else {
-                disableLaunchAtLogin()
-            }
-        }
-    }
+    @Published public private(set) var isEnabled = SMAppService.mainApp.status == .enabled
+    /// Why the last change was refused, shown under the toggle; nil when it worked.
+    @Published public private(set) var errorMessage: String?
 
-    private init() {
-        self.isEnabled = UserDefaults.standard.bool(forKey: "LaunchAtLogin")
-    }
+    private let log = Logger.app("login-item")
+
+    private init() {}
 
     public func checkStatus() {
         isEnabled = SMAppService.mainApp.status == .enabled
     }
 
-    private func enableLaunchAtLogin() {
+    public func setEnabled(_ enabled: Bool) {
         let service = SMAppService.mainApp
         do {
-            if service.status != .enabled {
+            if enabled {
                 try service.register()
-            }
-        } catch {
-            NSLog("Failed to enable launch at login: \(error.localizedDescription)")
-        }
-    }
-
-    private func disableLaunchAtLogin() {
-        let service = SMAppService.mainApp
-        do {
-            if service.status == .enabled {
+            } else {
                 try service.unregister()
             }
+            // Registered, but switched off by the user in Login Items: no error
+            // is thrown, so say where to allow it.
+            errorMessage = enabled && service.status == .requiresApproval
+                ? "allow Watch Me While I Fall Asleep in System Settings > General > Login Items."
+                : nil
         } catch {
-            NSLog("Failed to disable launch at login: \(error.localizedDescription)")
+            log.error("Launch at login change failed: \(error.localizedDescription, privacy: .public)")
+            errorMessage = error.localizedDescription
         }
+        checkStatus()
     }
 }

@@ -83,7 +83,7 @@ mv "Watch Me While I Fall Asleep.app" /Applications/
 ### Manual timer
 
 1. Click the moon icon and select **Timer**.
-2. Set a duration with the slider or a preset, then click **Start timer**.
+2. Set a duration with the slider or a preset, then click **Start Timer**.
 3. The icon fills in while the timer runs. Click it again to see the remaining
    time, add time, or stop.
 
@@ -114,17 +114,18 @@ hidden).
 
 - **Auto-start when idle**: the nightly window, idle threshold, and timer length.
 - **Startup**: launch at login.
-- **Updates**: current version, the latest check result, and a **Check for
-  updates** button; when a newer version exists, **Download** and **Skip this
-  version**.
+- **Updates**: current version, automatic daily checks on or off, and a **Check
+  for Updates…** button.
 
 ## Updates
 
-The app checks GitHub Releases a few seconds after launch. When a newer version
-is tagged, a **Get X.Y.Z…** link appears in the panel footer and in Settings >
-Updates; there is no pop-up at launch. You can also check on demand from
-Settings > Updates. It is a check-and-notify updater, not a silent installer: you
-download the new build and replace the app yourself.
+The app uses [Sparkle](https://sparkle-project.org) (MIT licensed; its notice
+ships in the app bundle) to check once a day for a new release. It never takes
+focus from what you are doing: when an update is found, an **Install X.Y.Z…**
+button appears in the panel footer, and the update window opens only when you
+choose it or check by hand from Settings > Updates. Updates are signed with an
+EdDSA key as well as the Developer ID, and install in place with a relaunch.
+Automatic checks can be turned off in Settings.
 
 ## Troubleshooting
 
@@ -135,7 +136,7 @@ download the new build and replace the app yourself.
   assertion (for example `caffeinate` or a media app). Check with
   `pmset -g assertions`.
 - **Camera mode isn't working:** enable the app under System Settings > Privacy
-  & Security > Camera, and make sure your face is visible and well-lit. 2.1.0 is
+  & Security > Camera, and make sure your face is visible and well lit. 2.1.0 is
   the first release signed with a Developer ID, a different signature from
   earlier builds, so macOS asks for camera access once more after the update.
 - **No icon in the menu bar:** confirm you are on macOS 14 or later; on macOS 26
@@ -144,13 +145,12 @@ download the new build and replace the app yourself.
 
 ## Building and releasing
 
-- `./run.sh` builds and runs for development.
 - `./create-app.sh` assembles the signed `.app` bundle: with the maintainer's
   Developer ID identity in the keychain it signs with it (hardened runtime and
   the camera entitlement in `WatchMeSleep.entitlements`), otherwise
   ad hoc, and then camera access re-prompts after every rebuild.
 - `RELEASE=1 ./create-app.sh && ./notarize.sh` adds a secure timestamp,
-  notarizes, staples and writes the release zip.
+  notarizes, staples, and writes the release zip.
 - `bash maintain.sh` runs SwiftLint, the tests, and a release build.
 - `./capture-screenshots.sh` rebuilds the app and regenerates the screenshots
   above through Accessibility, blurring the camera feed. It needs Accessibility
@@ -158,19 +158,22 @@ download the new build and replace the app yourself.
 
 Releases are automated: the app version comes from the git tag, and pushing a
 `vX.Y.Z` tag makes GitHub Actions build the app, sign it with the Developer ID,
-notarize it, and publish a Release with the zip attached. The tag build reads
-the repository secrets `DEVELOPER_ID_P12_BASE64`, `DEVELOPER_ID_P12_PASSWORD`,
-`NOTARY_KEY_P8_BASE64`, `NOTARY_KEY_ID` and `NOTARY_ISSUER_ID`; GitHub never
+notarize it, and publish a Release with the zip and the Sparkle `appcast.xml`
+attached; the tag annotation's body becomes both the release notes and the text
+of the update window. The tag build reads the repository secrets
+`DEVELOPER_ID_P12_BASE64`, `DEVELOPER_ID_P12_PASSWORD`, `NOTARY_KEY_P8_BASE64`,
+`NOTARY_KEY_ID`, `NOTARY_ISSUER_ID`, and `SPARKLE_PRIVATE_KEY`; GitHub never
 passes them to pull requests from forks, and branch builds stay ad hoc. Their
 source is the 1Password item "Apple Developer ID: Victor Kuznetsov
-(K2GT9Q4S6U)" (Private vault), which also holds the restore commands; the
-certificate expires on 2031-09-17. The bundle identifier
+(K2GT9Q4S6U)" (Private vault), which also holds the restore commands and the
+Sparkle EdDSA key (one key for every app of the team; `SUPublicEDKey` in
+`create-app.sh` is its public half); the certificate expires on 2031-09-17. The bundle identifier
 `com.wiltodelta.watchmesleep` is registered as an explicit App ID for that team
 in the Apple Developer portal; keep it, since the Camera grant, the settings and
 the login item are keyed to it.
 
 ```bash
-git tag -a vX.Y.Z -m "Watch Me While I Fall Asleep X.Y.Z"
+git tag -a vX.Y.Z -F notes.md   # first line the title, blank line, then the notes
 git push origin vX.Y.Z
 ```
 

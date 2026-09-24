@@ -66,7 +66,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
             // Update status immediately so UI doesn't feel stuck
             DispatchQueue.main.async {
                 if self.statusMessage != "Camera access was denied." {
-                    self.statusMessage = "Starting camera..."
+                    self.statusMessage = "Starting camera…"
                 }
             }
 
@@ -129,7 +129,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
             }
 
             DispatchQueue.main.async {
-                self.statusMessage = "Configuring camera..."
+                self.statusMessage = "Configuring camera…"
             }
 
             self.configureSessionIfNeeded()
@@ -145,7 +145,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
 
             DispatchQueue.main.async {
                 self.isSessionRunning = true
-                self.statusMessage = "Looking for your face..."
+                self.statusMessage = "Looking for your face…"
             }
         }
     }
@@ -280,7 +280,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
         setFaceDetected(false)
         DispatchQueue.main.async {
             if self.isSessionRunning {
-                self.statusMessage = "Looking for your face..."
+                self.statusMessage = "Looking for your face…"
             }
         }
     }
@@ -312,7 +312,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
         case .wakeDetected:
             DispatchQueue.main.async {
                 self.isUserAsleep = false
-                self.statusMessage = "Awake detected. Cancelling timer and resuming tracking."
+                self.statusMessage = "Awake detected. Canceling timer and resuming tracking."
                 if TimerManager.shared.isTimerActive {
                     TimerManager.shared.stopTimer()
                 }
@@ -384,8 +384,8 @@ extension SleepDetectionManager {
             alert.messageText = "Are you asleep?"
             alert.informativeText = "You have been in camera mode for 1.5 hours."
             alert.alertStyle = .informational
-            alert.addButton(withTitle: "Not yet")
-            alert.addButton(withTitle: "Sleep now")
+            alert.addButton(withTitle: "Not Yet")
+            alert.addButton(withTitle: "Sleep Now")
 
             // Create a custom label for countdown
             let countdownLabel = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 16))
@@ -401,14 +401,14 @@ extension SleepDetectionManager {
             var remainingSeconds = 30
 
             // Initial countdown text
-            countdownLabel.stringValue = "Auto-sleep in \(remainingSeconds) seconds..."
+            countdownLabel.stringValue = "Auto-sleep in \(remainingSeconds) seconds…"
 
             // Create a countdown timer on the main run loop
             let countdownTimer = Timer(timeInterval: 1.0, repeats: true) { timer in
                 remainingSeconds -= 1
 
                 if remainingSeconds > 0 {
-                    countdownLabel.stringValue = "Auto-sleep in \(remainingSeconds) seconds..."
+                    countdownLabel.stringValue = "Auto-sleep in \(remainingSeconds) seconds…"
                 } else {
                     // Time's up - force sleep
                     timer.invalidate()
@@ -426,10 +426,10 @@ extension SleepDetectionManager {
             NSApp.setActivationPolicy(.accessory)
 
             if response == .alertSecondButtonReturn {
-                // User chose "Sleep now"
+                // User chose "Sleep Now"
                 TimerManager.shared.sleepNow()
             } else if response == .alertFirstButtonReturn {
-                // User chose "Not yet" - restart timer
+                // User chose "Not Yet" - restart timer
                 self.startActivityCheckTimer()
             } else {
                 // Alert was closed by timer (auto-sleep)

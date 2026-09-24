@@ -78,8 +78,7 @@ enum TimerMode {
 }
 
 struct CommonSettingsView: View {
-    @StateObject private var updateChecker = UpdateChecker.shared
-    @Environment(\.openURL) private var openURL
+    @ObservedObject private var updater = Updater.shared
 
     var body: some View {
         HStack(spacing: 16) {
@@ -91,13 +90,14 @@ struct CommonSettingsView: View {
             }
             .accessibilityIdentifier("openSettings")
 
-            if let update = updateChecker.availableUpdate {
+            // Sparkle's gentle reminder: a scheduled check found this update.
+            if let version = updater.pendingVersion {
                 Button {
-                    openURL(update.url)
+                    updater.checkForUpdates()
                 } label: {
-                    Label("Get \(update.version)…", systemImage: "arrow.down.circle")
+                    Label("Install \(version)…", systemImage: "arrow.down.circle")
                 }
-                .help("Open the download page for version \(update.version)")
+                .help("Install version \(version)")
             }
 
             Spacer()
@@ -166,7 +166,7 @@ struct InactiveTimerView: View {
             Divider()
 
             // Start button
-            Button("Start timer") {
+            Button("Start Timer") {
                 TimerManager.shared.startTimer(hours: selectedHours)
             }
             .buttonStyle(.borderedProminent)
@@ -330,7 +330,7 @@ struct ActiveTimerView: View {
             Divider()
 
             // Stopping a timer destroys no data, so it takes no destructive red (HIG).
-            Button("Stop timer") {
+            Button("Stop Timer") {
                 timerManager.stopTimer()
             }
             .buttonStyle(.bordered)

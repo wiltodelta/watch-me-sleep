@@ -6,13 +6,12 @@ public func openAppSettings() {
     NotificationCenter.default.post(name: .openSettings, object: nil)
 }
 
-/// Preferences window content. Hosts the global settings that used to clutter the
+/// Settings window content. Hosts the global settings that used to clutter the
 /// menu bar panel: idle auto-start, launch at login, and update checks.
 public struct SettingsView: View {
     @StateObject private var autoActivation = AutoActivationManager.shared
     @StateObject private var launchManager = LaunchAtLoginManager.shared
-    @StateObject private var updateChecker = UpdateChecker.shared
-    @Environment(\.openURL) private var openURL
+    @ObservedObject private var updater = Updater.shared
 
     private let startHourOptions = [20, 21, 22, 23, 0, 1, 2]
     private let endHourOptions = [5, 6, 7, 8, 9, 10]
@@ -64,11 +63,16 @@ public struct SettingsView: View {
 
     private var startupSection: some View {
         Section {
-            Toggle("Launch at login", isOn: $launchManager.isEnabled)
+            // Shows what macOS actually did: a refused change flips back and says why.
+            Toggle("Launch at login", isOn: Binding(
+                get: { launchManager.isEnabled },
+                set: { launchManager.setEnabled($0) }
+            ))
         } header: {
             Text("Startup")
         } footer: {
-            Text("Start Watch Me While I Fall Asleep automatically when you log in to your Mac.")
+            Text(launchManager.errorMessage.map { "Couldn't change this: \($0)" }
+                 ?? "Start Watch Me While I Fall Asleep automatically when you log in to your Mac.")
         }
     }
 
@@ -76,54 +80,24 @@ public struct SettingsView: View {
 
     private var updatesSection: some View {
         Section {
-            LabeledContent("Version", value: updateChecker.currentVersion)
-            // The result shows inline rather than in an alert: the HIG says to avoid
-            // alerts that merely inform.
-            LabeledContent("Status") {
-                HStack(spacing: 6) {
-                    if updateChecker.state == .checking {
-                        ProgressView().controlSize(.small)
-                    }
-                    Text(updateStatus)
-                }
-            }
-            if let update = updateChecker.availableUpdate {
-                HStack {
-                    // Opens another app, so the title ends with an ellipsis.
-                    Button("Download \(update.version)…") {
-                        openURL(update.url)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    Button("Skip this version") {
-                        updateChecker.skipAvailableVersion()
-                    }
-                }
-            } else {
-                Button("Check for updates") {
-                    updateChecker.checkForUpdates(userInitiated: true)
-                }
-                .disabled(updateChecker.state == .checking)
+            LabeledContent("Version", value: updater.version)
+            Toggle("Check for updates automatically", isOn: Binding(
+                get: { updater.automaticallyChecks },
+                set: { updater.automaticallyChecks = $0 }
+            ))
+            // Opens Sparkle's update window, so the title ends with an ellipsis.
+            Button("Check for Updates…") {
+                updater.checkForUpdates()
             }
         } header: {
             Text("Updates")
         } footer: {
-            Text("Checks GitHub for a newer version on launch and shows it here and in the menu bar panel.")
-        }
-    }
-
-    private var updateStatus: String {
-        switch updateChecker.state {
-        case .idle: return "Not checked yet"
-        case .checking: return "Checking…"
-        case .upToDate: return "Up to date"
-        case .available(let version, _): return "Version \(version) is available"
-        case .skipped(let version): return "Version \(version) skipped"
-        case .failed: return "Couldn’t reach GitHub. Try again later."
+            Text("Checks once a day and installs a new version when you choose to.")
         }
     }
 
     private func hourLabel(_ hour: Int) -> String {
-        String(format: "%02d:00", hour)
+        HourFormat.label(hour)
     }
 
     private func durationLabel(_ hours: Double) -> String {

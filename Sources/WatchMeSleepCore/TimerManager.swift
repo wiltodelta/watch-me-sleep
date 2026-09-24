@@ -1,4 +1,5 @@
 import Foundation
+import os
 import AppKit
 
 public class TimerManager: ObservableObject {
@@ -88,7 +89,7 @@ public class TimerManager: ObservableObject {
         do {
             try task.run()
         } catch {
-            NSLog("Failed to put computer to sleep: \(error.localizedDescription)")
+            Logger.app("timer").error("Failed to put the Mac to sleep: \(error.localizedDescription, privacy: .public)")
 
             // Show alert to user
             DispatchQueue.main.async {

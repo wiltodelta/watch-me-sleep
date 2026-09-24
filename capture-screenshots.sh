@@ -22,10 +22,10 @@ WORK=$(mktemp -d)
 
 # --- Build ----------------------------------------------------------------------
 
-# CI=1 stamps the version from the latest git tag instead of "dev", so the
-# screenshots show a released version that is up to date, not an update prompt.
+# create-app.sh stamps the latest tag, so the screenshots show a released
+# version that is up to date.
 pkill -f "$EXECUTABLE" 2>/dev/null || true
-CI=1 ./create-app.sh >"$WORK/build.log" 2>&1 || { cat "$WORK/build.log"; exit 1; }
+./create-app.sh >"$WORK/build.log" 2>&1 || { cat "$WORK/build.log"; exit 1; }
 
 # --- Helper: window lookup and blur ---------------------------------------------
 
@@ -194,6 +194,9 @@ cleanup() {
     # Never leave a timer armed or the camera on.
     if timer_running 2>/dev/null; then open_panel && press stopTimer || true; fi
     open_panel >/dev/null 2>&1 && press Timer >/dev/null 2>&1 || true
+    # Quit the fresh build too: left running, it makes an installed copy quit on
+    # launch (the single-instance check).
+    [ -n "$PID" ] && kill "$PID" 2>/dev/null
     rm -rf "$WORK"
 }
 trap cleanup EXIT

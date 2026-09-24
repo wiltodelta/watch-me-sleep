@@ -16,9 +16,15 @@ let package = Package(
             targets: ["WatchMeSleep"]
         )
     ],
+    dependencies: [
+        // In-place updates from the appcast published with each release;
+        // create-app.sh embeds and signs the framework.
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.0")
+    ],
     targets: [
         .target(
             name: "WatchMeSleepCore",
+            dependencies: [.product(name: "Sparkle", package: "Sparkle")],
             path: "Sources/WatchMeSleepCore"
         ),
         .executableTarget(

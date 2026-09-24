@@ -1,3 +1,4 @@
+import os
 import SwiftUI
 import WatchMeSleepCore
 
@@ -27,7 +28,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: MenuBarPanelController!
     private var timerManager = TimerManager.shared
     private var sleepManager = SleepDetectionManager.shared
-    private var updateChecker = UpdateChecker.shared
     private var autoActivation = AutoActivationManager.shared
 
     private func isAnotherInstanceRunning() -> Bool {
@@ -44,7 +44,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Prevent multiple instances
         if isAnotherInstanceRunning() {
-            NSLog("Watch Me While I Fall Asleep is already running - terminating duplicate instance")
+            Logger.app("app").info("Another instance is running; quitting this one")
             NSApp.terminate(nil)
             return
         }
@@ -108,10 +108,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Start watching for idle time to auto-arm the timer at night
         autoActivation.startMonitoring()
 
-        // Check for updates on launch (after 3 seconds delay)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-            self?.updateChecker.checkForUpdates(userInitiated: false)
-        }
+        // Sparkle's daily checks (Updater).
+        Updater.shared.start()
     }
 
     /// The status item can be hidden by the system or by the person, so relaunching
@@ -144,12 +142,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
 
         if timerManager.isTimerActive {
-            let stop = NSMenuItem(title: "Stop timer", action: #selector(quickStopTimer), keyEquivalent: "")
+            let stop = NSMenuItem(title: "Stop Timer", action: #selector(quickStopTimer), keyEquivalent: "")
             stop.target = self
             setMenuSymbol("stop.circle", on: stop)
             menu.addItem(stop)
         } else {
-            let startItem = NSMenuItem(title: "Start timer", action: nil, keyEquivalent: "")
+            let startItem = NSMenuItem(title: "Start Timer", action: nil, keyEquivalent: "")
             setMenuSymbol("timer", on: startItem)
             let submenu = NSMenu()
             let presets: [(String, Double)] = [
@@ -263,7 +261,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return "Watch Me While I Fall Asleep running"
         }
         if autoActivation.isEnabled {
-            return String(format: "Auto-start armed: timer when idle after %02d:00", autoActivation.activeAfterHour)
+            return "Auto-start armed: timer when idle after \(HourFormat.label(autoActivation.activeAfterHour))"
         }
         return "Watch Me While I Fall Asleep"
     }

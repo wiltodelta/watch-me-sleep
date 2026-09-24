@@ -9,7 +9,7 @@ Watch Me While I Fall Asleep.app/
 *.app/
 .DS_Store
 
-# Generated Resources (created by generate-assets.sh)
+# Leftover output of the removed generate-assets.sh
 Resources/
 
 # Temporary assets folder
