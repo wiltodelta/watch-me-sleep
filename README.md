@@ -53,7 +53,7 @@ Auto-start and system:
 
 ### From a release
 
-1. Download the latest `WatchMeSleep-vX.Y.Z-macOS.zip` from the
+1. Download the latest `Watch-Me-While-I-Fall-Asleep-vX.Y.Z-macOS.zip` from the
    [Releases](https://github.com/wiltodelta/watch-me-sleep/releases) page.
 2. Unzip it and move **Watch Me While I Fall Asleep.app** to `/Applications`.
 3. Launch it. Releases from 2.1.0 on are signed with a Developer ID and
@@ -164,7 +164,10 @@ the repository secrets `DEVELOPER_ID_P12_BASE64`, `DEVELOPER_ID_P12_PASSWORD`,
 passes them to pull requests from forks, and branch builds stay ad hoc. Their
 source is the 1Password item "Apple Developer ID: Victor Kuznetsov
 (K2GT9Q4S6U)" (Private vault), which also holds the restore commands; the
-certificate expires on 2031-09-17.
+certificate expires on 2031-09-17. The bundle identifier
+`com.wiltodelta.watchmesleep` is registered as an explicit App ID for that team
+in the Apple Developer portal; keep it, since the Camera grant, the settings and
+the login item are keyed to it.
 
 ```bash
 git tag -a vX.Y.Z -m "Watch Me While I Fall Asleep X.Y.Z"

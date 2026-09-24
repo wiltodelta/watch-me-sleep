@@ -1,6 +1,6 @@
 #!/bin/bash
 # Notarize and staple the bundle create-app.sh produced, then zip it for a release:
-#   RELEASE=1 ./create-app.sh && ./notarize.sh   -> WatchMeSleep-vX.Y.Z-macOS.zip
+#   RELEASE=1 ./create-app.sh && ./notarize.sh   -> Watch-Me-While-I-Fall-Asleep-vX.Y.Z-macOS.zip
 #   ./notarize.sh --zip-only                      -> the same zip, not notarized (CI branch builds)
 #
 # Needs the Developer ID signature with a secure timestamp that RELEASE=1
@@ -16,7 +16,7 @@ PROFILE="${NOTARY_PROFILE:-notary-K2GT9Q4S6U}"
 # CI stores the profile in a temporary keychain and names it here.
 KEYCHAIN_ARGS=(${NOTARY_KEYCHAIN:+--keychain "$NOTARY_KEYCHAIN"})
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
-ZIP="WatchMeSleep-v$VERSION-macOS.zip"
+ZIP="Watch-Me-While-I-Fall-Asleep-v$VERSION-macOS.zip"
 
 if [[ "${1:-}" != "--zip-only" ]]; then
     # Read into a variable first: under pipefail, grep -q closing the pipe early

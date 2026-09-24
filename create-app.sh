@@ -61,6 +61,11 @@ if [ -f "Resources/AppIcon.icns" ]; then
     cp "Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
 fi
 
+# CFBundleVersion must grow with every release (Finder, Launch Services and
+# update checks compare it), so it follows the tag; a local "dev" build is 0.
+BUILD_VERSION="$VERSION"
+[ "$VERSION" = "dev" ] && BUILD_VERSION="0"
+
 # Generate Info.plist with version from git tag
 cat > "$APP_DIR/Contents/Info.plist" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -79,12 +84,20 @@ cat > "$APP_DIR/Contents/Info.plist" << EOF
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>$APP_NAME</string>
+	<key>CFBundleDisplayName</key>
+	<string>$APP_NAME</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright 2026 Victor Kuznetsov. Licensed under Apache-2.0.</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$VERSION</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>$BUILD_VERSION</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$MACOS_MIN</string>
 	<key>LSUIElement</key>
