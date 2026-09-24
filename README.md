@@ -56,13 +56,8 @@ Auto-start and system:
 1. Download the latest `WatchMeSleep-vX.Y.Z-macOS.zip` from the
    [Releases](https://github.com/wiltodelta/watch-me-sleep/releases) page.
 2. Unzip it and move **Watch Me While I Fall Asleep.app** to `/Applications`.
-3. The build is self-signed for personal use (not notarized), so macOS warns on
-   first launch. Either right-click the app and choose **Open** to confirm once,
-   or clear the quarantine flag:
-   ```bash
-   xattr -cr "/Applications/Watch Me While I Fall Asleep.app"
-   ```
-4. Launch it. A moon icon appears in the menu bar (there is no Dock icon).
+3. Launch it. Releases from 2.1.0 on are signed with a Developer ID and
+   notarized by Apple, so macOS opens them without a warning. A moon icon appears in the menu bar (there is no Dock icon).
 
 The app checks GitHub Releases on launch and tells you when a newer version is
 out, so updating later is just steps 1 to 3 again.
@@ -133,15 +128,16 @@ download the new build and replace the app yourself.
 
 ## Troubleshooting
 
-- **"Watch Me While I Fall Asleep is damaged and can't be opened":** Gatekeeper
-  blocking a non-notarized app. Clear the quarantine flag with
-  `xattr -cr "/Applications/Watch Me While I Fall Asleep.app"`, or right-click
-  the app and choose **Open**.
+- **"Watch Me While I Fall Asleep is damaged and can't be opened":** releases
+  before 2.1.0 were not notarized. Update to the latest release, or clear the
+  quarantine flag with `xattr -cr "/Applications/Watch Me While I Fall Asleep.app"`.
 - **The timer doesn't sleep the Mac:** something may be holding a power
   assertion (for example `caffeinate` or a media app). Check with
   `pmset -g assertions`.
 - **Camera mode isn't working:** enable the app under System Settings > Privacy
-  & Security > Camera, and make sure your face is visible and well-lit.
+  & Security > Camera, and make sure your face is visible and well-lit. 2.1.0 is
+  the first release signed with a Developer ID, a different signature from
+  earlier builds, so macOS asks for camera access once more after the update.
 - **No icon in the menu bar:** confirm you are on macOS 14 or later; on macOS 26
   also check System Settings > Menu Bar > Allow in the Menu Bar. Opening the app
   again shows its settings window either way.
@@ -149,19 +145,30 @@ download the new build and replace the app yourself.
 ## Building and releasing
 
 - `./run.sh` builds and runs for development.
-- `./create-app.sh` assembles the signed `.app` bundle.
+- `./create-app.sh` assembles the signed `.app` bundle: with the maintainer's
+  Developer ID identity in the keychain it signs with it (hardened runtime and
+  the camera entitlement in `Resources/WatchMeSleep.entitlements`), otherwise
+  ad hoc, and then camera access re-prompts after every rebuild.
+- `RELEASE=1 ./create-app.sh && ./notarize.sh` adds a secure timestamp,
+  notarizes, staples and writes the release zip.
 - `bash maintain.sh` runs SwiftLint, the tests, and a release build.
 - `./capture-screenshots.sh` rebuilds the app and regenerates the screenshots
   above through Accessibility, blurring the camera feed. It needs Accessibility
   and Screen Recording access for the terminal and turns the camera on briefly.
 
 Releases are automated: the app version comes from the git tag, and pushing a
-`vX.Y.Z` tag makes GitHub Actions build the app and publish a Release with the
-zip attached.
+`vX.Y.Z` tag makes GitHub Actions build the app, sign it with the Developer ID,
+notarize it, and publish a Release with the zip attached. The tag build reads
+the repository secrets `DEVELOPER_ID_P12_BASE64`, `DEVELOPER_ID_P12_PASSWORD`,
+`NOTARY_KEY_P8_BASE64`, `NOTARY_KEY_ID` and `NOTARY_ISSUER_ID`; GitHub never
+passes them to pull requests from forks, and branch builds stay ad hoc. Their
+source is the 1Password item "Apple Developer ID: Victor Kuznetsov
+(K2GT9Q4S6U)" (Private vault), which also holds the restore commands; the
+certificate expires on 2031-09-17.
 
 ```bash
-git tag -a v1.8.0 -m "Watch Me While I Fall Asleep 1.8.0"
-git push origin v1.8.0
+git tag -a vX.Y.Z -m "Watch Me While I Fall Asleep X.Y.Z"
+git push origin vX.Y.Z
 ```
 
 Local builds report version `dev` and are not meant for distribution.

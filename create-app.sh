@@ -103,21 +103,29 @@ echo "✅ App bundle created successfully: $APP_DIR"
 # Info.plist and Resources afterwards invalidates that signature, so the bundle
 # needs a fresh signature with matching CodeResources for Gatekeeper/Finder.
 #
-# Prefer a stable self-signed identity so the Camera (TCC) grant persists across
-# rebuilds; fall back to ad-hoc when it is missing (e.g. in CI), which makes
-# macOS re-prompt for camera access. Recreate the identity once with:
-#   openssl req -x509 -newkey rsa:2048 -keyout k.key -out c.crt -days 3650 -nodes \
-#     -subj "/CN=$SIGN_IDENTITY" -addext "extendedKeyUsage=critical,codeSigning"
-#   openssl pkcs12 -export -out c.p12 -inkey k.key -in c.crt -passout pass:wms \
-#     -name "$SIGN_IDENTITY" -macalg sha1 -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES
-#   security import c.p12 -k ~/Library/Keychains/login.keychain-db -P wms -A
-SIGN_IDENTITY="Watch Me While I Fall Asleep Dev"
-if security find-identity -p codesigning 2>/dev/null | grep -q "$SIGN_IDENTITY" \
-    && codesign --force --deep --sign "$SIGN_IDENTITY" "$APP_DIR" 2>/dev/null; then
+# Sign with the team's Developer ID Application identity when the keychain has it:
+# its stable designated requirement keeps the Camera (TCC) grant across rebuilds
+# and releases, and with the hardened runtime, the camera entitlement and
+# (RELEASE=1) a secure timestamp it is what notarization requires (notarize.sh).
+# The timestamp needs Apple's server, so everyday builds skip it and still work
+# offline. Without the identity (contributors, CI branch builds) the bundle is
+# signed ad hoc, which runs but re-prompts for camera access after every rebuild.
+TEAM_ID="K2GT9Q4S6U"
+ENTITLEMENTS="Resources/WatchMeSleep.entitlements"
+SIGN_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
+    | awk -F'"' -v team="($TEAM_ID)" '/Developer ID Application:/ && index($2, team) {print $2; exit}')"
+if [ -n "$SIGN_IDENTITY" ]; then
+    TIMESTAMP="--timestamp=none"
+    [ "${RELEASE:-}" = 1 ] && TIMESTAMP="--timestamp"
+    codesign --force --options runtime --entitlements "$ENTITLEMENTS" "$TIMESTAMP" \
+        --sign "$SIGN_IDENTITY" "$APP_DIR" || exit 1
     echo "🔏 Signed the bundle with '$SIGN_IDENTITY'."
+elif [ "${RELEASE:-}" = 1 ]; then
+    echo "error: RELEASE=1 but no Developer ID Application identity for team $TEAM_ID" >&2
+    exit 1
 else
     echo "🔏 Ad-hoc signing the bundle (Camera access will re-prompt on relaunch)..."
-    codesign --force --deep --sign - "$APP_DIR"
+    codesign --force --entitlements "$ENTITLEMENTS" --sign - "$APP_DIR" || exit 1
 fi
 
 # Remove quarantine attribute if running locally (not in CI)

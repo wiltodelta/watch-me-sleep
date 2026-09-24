@@ -26,3 +26,6 @@ TemporaryAssets.xcassets/
 /.opencode/
 /opencode.json
 /opencode.jsonc
+
+# Release zips built by notarize.sh
+/WatchMeSleep-v*-macOS.zip
