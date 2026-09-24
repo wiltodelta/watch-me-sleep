@@ -147,7 +147,7 @@ download the new build and replace the app yourself.
 - `./run.sh` builds and runs for development.
 - `./create-app.sh` assembles the signed `.app` bundle: with the maintainer's
   Developer ID identity in the keychain it signs with it (hardened runtime and
-  the camera entitlement in `Resources/WatchMeSleep.entitlements`), otherwise
+  the camera entitlement in `WatchMeSleep.entitlements`), otherwise
   ad hoc, and then camera access re-prompts after every rebuild.
 - `RELEASE=1 ./create-app.sh && ./notarize.sh` adds a secure timestamp,
   notarizes, staples and writes the release zip.

@@ -111,7 +111,7 @@ echo "✅ App bundle created successfully: $APP_DIR"
 # offline. Without the identity (contributors, CI branch builds) the bundle is
 # signed ad hoc, which runs but re-prompts for camera access after every rebuild.
 TEAM_ID="K2GT9Q4S6U"
-ENTITLEMENTS="Resources/WatchMeSleep.entitlements"
+ENTITLEMENTS="WatchMeSleep.entitlements"
 SIGN_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
     | awk -F'"' -v team="($TEAM_ID)" '/Developer ID Application:/ && index($2, team) {print $2; exit}')"
 if [ -n "$SIGN_IDENTITY" ]; then
