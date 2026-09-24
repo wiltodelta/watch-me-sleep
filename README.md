@@ -40,6 +40,8 @@ Auto-start and system:
 - Optionally arm a timer on its own once the Mac sits idle for a set number of
   minutes inside a nightly window, so you never forget to start one.
 - Launch at login.
+- In-place updates: checks once a day and installs a new version when you
+  choose to (Sparkle).
 - Adaptive app icon (light/dark), restrained system-style UI.
 
 ## Requirements
@@ -57,10 +59,10 @@ Auto-start and system:
    [Releases](https://github.com/wiltodelta/watch-me-sleep/releases) page.
 2. Unzip it and move **Watch Me While I Fall Asleep.app** to `/Applications`.
 3. Launch it. Releases from 2.1.0 on are signed with a Developer ID and
-   notarized by Apple, so macOS opens them without a warning. A moon icon appears in the menu bar (there is no Dock icon).
+   notarized by Apple, so macOS opens them without a warning. A moon icon
+   appears in the menu bar (there is no Dock icon).
 
-The app checks GitHub Releases on launch and tells you when a newer version is
-out, so updating later is just steps 1 to 3 again.
+From 2.2.0 on the app updates itself (see [Updates](#updates)).
 
 ### From source
 
@@ -156,28 +158,31 @@ Automatic checks can be turned off in Settings.
   above through Accessibility, blurring the camera feed. It needs Accessibility
   and Screen Recording access for the terminal and turns the camera on briefly.
 
-Releases are automated: the app version comes from the git tag, and pushing a
-`vX.Y.Z` tag makes GitHub Actions build the app, sign it with the Developer ID,
-notarize it, and publish a Release with the zip and the Sparkle `appcast.xml`
-attached; the tag annotation's body becomes both the release notes and the text
-of the update window. The tag build reads the repository secrets
-`DEVELOPER_ID_P12_BASE64`, `DEVELOPER_ID_P12_PASSWORD`, `NOTARY_KEY_P8_BASE64`,
-`NOTARY_KEY_ID`, `NOTARY_ISSUER_ID`, and `SPARKLE_PRIVATE_KEY`; GitHub never
-passes them to pull requests from forks, and branch builds stay ad hoc. Their
-source is the 1Password item "Apple Developer ID: Victor Kuznetsov
-(K2GT9Q4S6U)" (Private vault), which also holds the restore commands and the
-Sparkle EdDSA key (one key for every app of the team; `SUPublicEDKey` in
-`create-app.sh` is its public half); the certificate expires on 2031-09-17. The bundle identifier
-`com.wiltodelta.watchmesleep` is registered as an explicit App ID for that team
-in the Apple Developer portal; keep it, since the Camera grant, the settings and
-the login item are keyed to it.
+Releases are automated: the app version comes from the git tag. Pushing an
+annotated `vX.Y.Z` tag makes GitHub Actions build the app, sign it with the
+Developer ID, notarize it, and publish a Release with the zip and the Sparkle
+`appcast.xml` attached. The annotation's first line is the release title and its
+body the release notes, which also appear in the update window:
 
 ```bash
 git tag -a vX.Y.Z -F notes.md   # first line the title, blank line, then the notes
 git push origin vX.Y.Z
 ```
 
-Local builds report version `dev` and are not meant for distribution.
+Local builds carry the latest tag's version and are not meant for distribution.
+Secrets, keys and verification steps: [`docs/build-and-release.md`](docs/build-and-release.md).
+
+## Uninstall
+
+Quit the app from its panel, then move **Watch Me While I Fall Asleep.app** to
+the Trash. To remove its settings too:
+
+```bash
+defaults delete com.wiltodelta.watchmesleep
+```
+
+Remove it from System Settings > Privacy & Security > Camera and from General >
+Login Items as well.
 
 ## License
 
