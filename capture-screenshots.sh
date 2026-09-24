@@ -38,6 +38,9 @@ import CoreImage
 // menubar                       -> the menu bar height in points
 // backdrop <x> <y> <w> <h>      -> show a plain backdrop window there (screen points,
 //                                  top-left origin) until killed
+// clear <pid> <backdrop pid> <x> <y> <w> <h>
+//                               -> exit 0 if only the app's windows, then the backdrop,
+//                                  are in that region (top-left origin)
 // pad <png> <top>               -> add <top> points above the image in its top-left color
 // blur <png> <x> <y> <w> <h> <r> -> blur inside that rounded rect (points, top-left)
 let args = CommandLine.arguments
@@ -63,20 +66,25 @@ func save(_ image: CIImage, to url: URL) {
     try! CIContext().writePNGRepresentation(of: image, to: url, format: .RGBA8,
                                            colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)
 }
+// On-screen windows, front to back.
+func onScreen() -> [[String: Any]] {
+    CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
+}
 func windows(_ pid: Int32) -> [[String: Any]] {
-    let all = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
-    return all.filter { ($0[kCGWindowOwnerPID as String] as? Int32) == pid }
+    onScreen().filter { ($0[kCGWindowOwnerPID as String] as? Int32) == pid }
+}
+func frame(_ w: [String: Any]) -> CGRect {
+    let b = w[kCGWindowBounds as String] as! [String: CGFloat]
+    return CGRect(x: b["X"]!, y: b["Y"]!, width: b["Width"]!, height: b["Height"]!)
 }
 
 func printFrame(_ w: [String: Any]) {
-    let b = w[kCGWindowBounds as String] as! [String: CGFloat]
-    print(w[kCGWindowNumber as String]!, Int(b["X"]!), Int(b["Y"]!), Int(b["Width"]!), Int(b["Height"]!))
+    let f = frame(w)
+    print(w[kCGWindowNumber as String]!, Int(f.minX), Int(f.minY), Int(f.width), Int(f.height))
 }
 switch args[1] {
 case "window":
-    let widthMatch = windows(Int32(args[2])!).first {
-        Int(($0[kCGWindowBounds as String] as! [String: CGFloat])["Width"]!) == Int(args[3])!
-    }
+    let widthMatch = windows(Int32(args[2])!).first { Int(frame($0).width) == Int(args[3])! }
     if let w = widthMatch { printFrame(w) }
 case "named":
     if let w = windows(Int32(args[2])!).first(where: { ($0[kCGWindowName as String] as? String) == args[3] }) {
@@ -103,6 +111,31 @@ case "backdrop":
     window.ignoresMouseEvents = true
     window.orderFrontRegardless()
     app.run()
+case "clear":
+    let (pid, backdrop) = (Int32(args[2])!, Int32(args[3])!)
+    let rect = CGRect(x: Double(args[4])!, y: Double(args[5])!, width: Double(args[6])!, height: Double(args[7])!)
+    // The region must lie inside the visible frame (top-left origin), or the Dock
+    // or another screen's content is in it.
+    let screen = NSScreen.screens[0]
+    let visible = CGRect(x: screen.visibleFrame.minX, y: screen.frame.maxY - screen.visibleFrame.maxY,
+                         width: screen.visibleFrame.width, height: screen.visibleFrame.height)
+    guard visible.contains(rect) else {
+        FileHandle.standardError.write(Data("the window does not fit the visible screen\n".utf8))
+        exit(1)
+    }
+    var sawApp = false
+    for w in onScreen() {
+        guard frame(w).intersects(rect), (w[kCGWindowAlpha as String] as? Double ?? 1) > 0 else { continue }
+        // The Dock spans the whole screen at layer 20, transparent but for the
+        // Dock itself at the screen edge.
+        if w[kCGWindowOwnerName as String] as? String == "Dock" { continue }
+        let owner = w[kCGWindowOwnerPID as String] as? Int32
+        if owner == backdrop { exit(sawApp ? 0 : 1) }
+        if owner == pid { sawApp = true; continue }
+        FileHandle.standardError.write(Data("\(w[kCGWindowOwnerName as String] ?? "?") covers the capture\n".utf8))
+        exit(1)
+    }
+    exit(1)
 case "pad":
     let (url, image, scale, rep) = load(args[2])
     let top = (CGFloat(Double(args[3])!) * scale).rounded()
@@ -215,11 +248,20 @@ show_backdrop() {
     sleep 1.2
 }
 # capture_region <name> <x> <y> <w> <h>: the window's frame in screen points.
+# The region is checked before and after the capture, and the image kept only
+# if both pass: a window raised meanwhile (the Mac is in use) would put its
+# contents, often private, into a public image.
 capture_region() {
     local top=$((MARGIN < $3 - MENU_BAR ? MARGIN : $3 - MENU_BAR))
-    screencapture -x -R"$(($2 - MARGIN)),$(($3 - top)),$(($4 + 2 * MARGIN)),$(($5 + top + MARGIN))" "$OUT/$1.png"
+    local region=("$(($2 - MARGIN))" "$(($3 - top))" "$(($4 + 2 * MARGIN))" "$(($5 + top + MARGIN))")
+    local shot="$WORK/$1.png"
+    helper clear "$PID" "$BACKDROP_PID" "${region[@]}" &&
+        screencapture -x -R"$(IFS=,; echo "${region[*]}")" "$shot" &&
+        helper clear "$PID" "$BACKDROP_PID" "${region[@]}" ||
+        { echo "Another window covered $1; rerun with the Mac left alone."; exit 1; }
     kill "$BACKDROP_PID"; wait "$BACKDROP_PID" 2>/dev/null || true; BACKDROP_PID=""
-    [ "$top" -lt "$MARGIN" ] && helper pad "$OUT/$1.png" $((MARGIN - top))
+    [ "$top" -lt "$MARGIN" ] && helper pad "$shot" $((MARGIN - top))
+    mv "$shot" "$OUT/$1.png"
     echo "Captured $OUT/$1.png"
 }
 capture_panel() {
