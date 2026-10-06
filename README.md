@@ -2,18 +2,39 @@
 
 [![Build Watch Me While I Fall Asleep App](https://github.com/wiltodelta/watch-me-sleep/actions/workflows/build.yml/badge.svg)](https://github.com/wiltodelta/watch-me-sleep/actions/workflows/build.yml)
 
-A macOS menu bar app that puts your Mac to sleep on a timer. Set a countdown by
-hand, or switch on Camera mode and it starts the timer for you when it sees your
-eyes stay closed. Menu bar only, no Dock icon.
+A macOS menu bar app that puts your Mac to sleep once you fall asleep. At
+bedtime it notices when a film or music keeps the Mac awake but nobody is
+using it any more, takes a short look with the camera when unsure, and sleeps
+the Mac with a minute's warning. A timer covers the rest of the day. Menu bar
+only, no Dock icon.
 
 <p align="center">
-  <img src="screenshots/manual-timer.png" alt="Timer mode with duration presets" width="280">
+  <img src="screenshots/manual-timer.png" alt="The panel: night watch status and a timer with duration presets" width="280">
   <img src="screenshots/active-manual-timer.png" alt="A running timer with its countdown" width="280">
-  <img src="screenshots/camera-mode.png" alt="Camera mode with the video feed blurred" width="280">
-  <img src="screenshots/settings.png" alt="Settings window" width="280">
+  <img src="screenshots/settings.png" alt="Settings with the night watch and a blurred camera preview" width="280">
 </p>
 
 ## Features
+
+Night watch (on by default, during bedtime hours you choose):
+
+- Watches what keeps the Mac awake, not just how long it sat idle: macOS already
+  sleeps an idle Mac, so the night watch steps in when a video, music, or a
+  podcast keeps it up after you stopped using it.
+- When unsure, the camera takes a short look: closed eyes, or nobody there (or
+  too dark to see), start a 15-minute timer; open eyes leave a film you are
+  still watching alone, and it looks again in 10 minutes.
+- Without the camera it still works: nothing playing and no input for 20
+  minutes starts the timer; something playing for 90 minutes without input
+  asks whether you are still watching.
+- Never runs the camera outside bedtime, never asks for camera access at night,
+  and analyzes frames on this Mac with Apple's Vision framework; nothing is
+  recorded or sent anywhere.
+- Work keeps going: when `caffeinate`, a download, a build, or an agent holds
+  the Mac awake, only the display turns off, and the Mac sleeps by itself once
+  the work lets go.
+- The panel says what it is doing: "Something is playing. No input for 12 min.
+  The camera looks at 23:40."
 
 Timer:
 
@@ -24,30 +45,19 @@ Timer:
 - Right-click the icon for a quick menu: start a common timer, stop the current
   one, or open Settings.
 - Circular progress ring, and a moon icon that fills in while a timer runs.
+
+Every timer, set by hand or by the night watch:
+
 - A gentle last minute: a small panel in the corner counts down with **+15 Min**
   and **Sleep Now**, and the volume fades out. It shows over full-screen video
   and does not take the keyboard from the player. The volume comes back when
-  the Mac wakes.
+  the Mac or its display wakes.
 - Never sleeps a Mac in use: touch the mouse or keyboard during that last
-  minute and the timer moves on by 15 minutes instead.
+  minute (or, for the night watch's timer, look at the camera) and the timer
+  moves on by 15 minutes instead.
 
-Camera mode:
+System:
 
-- Starts a 30-minute timer on its own when your eyes stay closed for about 15
-  seconds, and cancels it if you open them.
-- Live preview with a border that turns green once your face is detected.
-- After 1.5 hours it asks if you are still awake, and sleeps the Mac if there is
-  no response within 30 seconds.
-- All processing is on-device with Apple's Vision framework. No video is stored
-  or sent anywhere.
-
-Auto-start and system:
-
-- Optionally arm a timer on its own once the Mac sits idle for a set number of
-  minutes inside a nightly window, so you never forget to start one.
-- With camera access, auto-start takes a short look first: closed eyes, or
-  nobody there (or too dark to see), start a 15-minute timer; open eyes leave
-  the Mac alone, so a film you are still watching is not cut off.
 - Launch at login.
 - In-place updates: checks once a day and installs a new version when you
   choose to (Sparkle).
@@ -84,16 +94,33 @@ mv "Watch Me While I Fall Asleep.app" /Applications/
 
 ## First run
 
-- Manual timer mode needs no permissions at all.
-- Camera mode asks for **Camera** access the first time you open it (System
-  Settings > Privacy & Security > Camera). It is optional; the timer works
-  without it, and all camera processing stays on-device.
+- The night watch and the timer need no permissions at all.
+- The camera is optional. Turn on **Use the camera** in Settings and the app
+  asks for **Camera** access then (System Settings > Privacy & Security >
+  Camera); **Camera preview > Show** shows what it sees.
 
 ## Usage
 
-### Manual timer
+### Night watch
 
-1. Click the moon icon and select **Timer**.
+It is on from 9 PM to 8 AM by default; change the hours in Settings. During
+those hours, once you stop using the Mac:
+
+- Nothing playing, nobody at the keyboard: after 10 minutes the camera looks
+  (or, without it, after 20 minutes a 15-minute timer starts).
+- Something playing: after 10 minutes the camera looks. Closed eyes or nobody
+  there start a 15-minute timer; open eyes mean you are watching, and it looks
+  again in 10 minutes. If the picture stays unclear (dim light, a face turned
+  away), or there is no camera, it asks after 90 minutes whether you are still
+  watching.
+- After three hours without input it asks anyway: some people sleep with their
+  eyes partly open.
+- It acts once per stretch of not using the Mac, and starts over when you are
+  back.
+
+### Timer
+
+1. Click the moon icon.
 2. Set a duration with the slider or a preset, then click **Start Timer**.
 3. The icon fills in while the timer runs. Click it again to see the remaining
    time, add time, or stop.
@@ -105,40 +132,15 @@ mv "Watch Me While I Fall Asleep.app" /Applications/
 Right-click the icon for a quick menu that starts a common timer
 (15m/30m/1h/1.5h/2h), stops the current one, or opens Settings.
 
-### Camera mode
-
-1. Click the moon icon, select **Camera**, and grant camera access.
-2. The preview border turns green once your face is detected.
-3. When your eyes stay closed for about 15 seconds, a 30-minute timer starts.
-   Open your eyes for a few seconds to cancel it.
-4. Every 1.5 hours it asks if you are still awake; no response within 30 seconds
-   sleeps the Mac.
-
-### Auto-start when idle
-
-Enable it in Settings, then pick the nightly window (start and end hour), how
-many idle minutes should pass, and the timer length. When the Mac sits idle past
-that threshold inside the window, a timer arms on its own. It stays out of the
-way while a timer is already running or Camera mode is active.
-
-With **Check with the camera first** on (the default once the app has camera
-access), the camera turns on for up to 30 seconds before anything starts:
-
-- Eyes closed for about 15 seconds, or no face at all: a 15-minute timer starts.
-- Eyes open: nothing starts, and it looks again in 10 minutes.
-- No camera access, or no picture (lid closed): the timer length you chose
-  starts, as without the check.
-
-It never asks for camera access at night; the switch asks when you turn it on.
-
 ## Settings
 
 Open Settings from **Settings…** in the panel, from the right-click menu, or by
 opening the app again from Finder or Spotlight (useful if its menu bar icon is
 hidden).
 
-- **Auto-start when idle**: the nightly window, idle threshold, timer length,
-  and the camera check.
+- **Night watch**: on or off, bedtime hours, and **Use the camera**. **Camera
+  preview > Show** turns the camera on to check that it sees your face; it goes
+  off again with **Hide** or when Settings closes.
 - **Startup**: launch at login.
 - **Updates**: current version, automatic daily checks on or off, and a **Check
   for Updates…** button.
@@ -158,13 +160,13 @@ Automatic checks can be turned off in Settings.
 - **"Watch Me While I Fall Asleep is damaged and can't be opened":** releases
   before 2.1.0 were not notarized. Update to the latest release, or clear the
   quarantine flag with `xattr -cr "/Applications/Watch Me While I Fall Asleep.app"`.
-- **The timer doesn't sleep the Mac:** something may be holding a power
-  assertion (for example `caffeinate` or a media app). Check with
-  `pmset -g assertions`.
-- **Camera mode isn't working:** enable the app under System Settings > Privacy
-  & Security > Camera, and make sure your face is visible and well lit. 2.1.0 is
-  the first release signed with a Developer ID, a different signature from
-  earlier builds, so macOS asks for camera access once more after the update.
+- **Only the display turned off:** work was holding the Mac awake, and the app
+  leaves it running. See what with `pmset -g assertions`.
+- **The camera never looks:** enable the app under System Settings > Privacy &
+  Security > Camera, turn on **Use the camera**, and check in the Settings
+  preview that your face is visible and well lit. 2.1.0 is the first release
+  signed with a Developer ID, a different signature from earlier builds, so
+  macOS asks for camera access once more after the update.
 - **No icon in the menu bar:** confirm you are on macOS 14 or later; on macOS 26
   also check System Settings > Menu Bar > Allow in the Menu Bar. Opening the app
   again shows its settings window either way.

@@ -30,8 +30,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// on every tick of a timer that may run for hours.
     private var sleepWarning: SleepWarningController?
     private var timerManager = TimerManager.shared
-    private var sleepManager = SleepDetectionManager.shared
-    private var autoActivation = AutoActivationManager.shared
+    private var supervisor = SleepSupervisor.shared
 
     private func isAnotherInstanceRunning() -> Bool {
         guard let bundleID = Bundle.main.bundleIdentifier else {
@@ -89,15 +88,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.updateSleepWarning()
         }
 
-        // Update icon when camera mode changes
-        NotificationCenter.default.addObserver(
-            forName: .cameraModeChanged,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.updateStatusItem()
-        }
-
         // Open the settings window when the panel requests it
         NotificationCenter.default.addObserver(
             forName: .openSettings,
@@ -109,8 +99,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         updateStatusItem()
 
-        // Start watching for idle time to auto-arm the timer at night
-        autoActivation.startMonitoring()
+        // The night watch: sleep the Mac once nobody is using it at bedtime.
+        supervisor.startMonitoring()
 
         // Sparkle's daily checks (Updater).
         Updater.shared.start()
@@ -279,8 +269,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if timerManager.isTimerActive {
             return "Watch Me While I Fall Asleep running"
         }
-        if autoActivation.isEnabled {
-            return "Auto-start armed: timer when idle after \(HourFormat.label(autoActivation.activeAfterHour))"
+        if supervisor.isEnabled {
+            return "Night watch on from \(HourFormat.label(supervisor.activeAfterHour))"
         }
         return "Watch Me While I Fall Asleep"
     }
@@ -288,9 +278,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 extension AppDelegate: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
-        // When the settings window closes, hide the dock icon again.
+        // When the settings window closes, hide the dock icon again, and let
+        // the window go: its views disappear with it, which turns a camera
+        // preview off, and the next opening starts fresh.
         if notification.object as? NSWindow === settingsWindow {
             NSApp.setActivationPolicy(.accessory)
+            settingsWindow = nil
         }
     }
 }

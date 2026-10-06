@@ -4,13 +4,13 @@ Relocated from the repo root `CLAUDE.md`. Read before editing `AppDelegate`, `Me
 
 ## Settings window
 
-This is a menu-bar `.accessory` app. The SwiftUI `Settings` scene does NOT open reliably from it. `SettingsView` is hosted in a custom `NSWindow` by `AppDelegate`, opened via the `OpenSettings` notification (`openAppSettings()`), toggling `.regular`/`.accessory` activation policy around it.
+This is a menu-bar `.accessory` app. The SwiftUI `Settings` scene does NOT open reliably from it. `SettingsView` is hosted in a custom `NSWindow` by `AppDelegate`, opened via the `OpenSettings` notification (`openAppSettings()`), toggling `.regular`/`.accessory` activation policy around it. `windowWillClose` drops the window, so its SwiftUI views disappear on close: the camera preview (`CameraPreviewRow`) stops the camera in its `onDisappear`, which never fires on a window kept alive between openings.
 
 ## Menu-bar dropdown panel
 
 The main dropdown is a custom arrowless borderless `NSPanel` (`MenuBarPanel.swift`), not an `NSPopover` (whose triangular arrow looks dated). Three things there are load-bearing and easy to regress:
 
-- Window height is driven by `host.sizeThatFits(in:)`, NOT `NSHostingController.preferredContentSize`. The latter undercounts tall content and clips the footer in camera mode.
+- Window height is driven by `host.sizeThatFits(in:)`, NOT `NSHostingController.preferredContentSize`. The latter undercounts tall content and clipped the footer of the former, taller camera mode.
 - The backing material stays at the AppKit level, outside the measured SwiftUI tree. On macOS 26+ it is an `NSGlassEffectView` (Liquid Glass) whose `contentView` is the hosting view; before that (macOS 14 and 15), an `NSVisualEffectView` with the `.popover` material sits as a sibling *behind* the hosting view. Embedding an effect inside the self-sizing SwiftUI content recurses through Auto Layout and crashes (stack overflow).
 - Content width is pinned via `.frame(width:)`. Without it the greedy `maxWidth: .infinity` content collapses and the panel comes out too narrow. Corner rounding lives on a layer-backed `NSView` with `masksToBounds` that holds the backing, on every release. Rounding the visual-effect view itself leaves square opaque corners, and an `NSGlassEffectView` set as the window's root view draws a square rim along its bounds around its own rounded glass; the clip cuts both away.
 

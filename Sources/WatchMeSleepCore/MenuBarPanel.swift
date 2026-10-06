@@ -32,8 +32,8 @@ extension NSPanel {
 /// `NSHostingController` recurses through Auto Layout and overflows the stack.
 /// The window height is driven from the inner content's exact `sizeThatFits`
 /// (its `preferredContentSize` undercounts tall content and clipped the
-/// footer), so the panel resizes to fit as the content changes between timer
-/// and camera modes.
+/// footer), so the panel resizes to fit as the content changes, from the
+/// timer picker to a running timer.
 final class PanelHostController: NSViewController {
     private let host: NSHostingController<AnyView>
     private let fixedWidth: CGFloat
@@ -97,7 +97,7 @@ final class PanelHostController: NSViewController {
 
     /// Drive the window height from the SwiftUI content's exact fitting size.
     /// `NSHostingController.preferredContentSize` undercounts tall content here
-    /// (it clipped the footer in camera mode), so measure explicitly instead.
+    /// (it clipped the footer of tall content), so measure explicitly instead.
     override func viewDidLayout() {
         super.viewDidLayout()
         resizeToFitContent()
@@ -153,8 +153,8 @@ public final class MenuBarPanelController {
         panel.animationBehavior = .none
 
         // A hosting controller (not a bare hosting view) sizes the window to fit
-        // the SwiftUI content and keeps it in sync as the content changes between
-        // timer and camera modes — the same self-resizing the old popover had.
+        // the SwiftUI content and keeps it in sync as the content changes (picker,
+        // running timer, status text) — the same self-resizing the old popover had.
         // `startObservingResize()` re-pins the top edge under the menu bar.
         panel.setContentSize(size)
         panel.contentViewController = PanelHostController(rootView: rootView, width: size.width)

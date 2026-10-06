@@ -7,8 +7,9 @@
 # other windows or system prompts. The terminal running it needs Accessibility and
 # Screen Recording access. Captures follow the current system appearance.
 #
-# The camera screenshot turns the camera on for a few seconds and blurs the feed
-# before saving: the repository is public. The timer screenshot starts a real
+# The settings screenshot shows the camera preview, so it turns the camera on
+# for a few seconds and blurs the feed before saving: the repository is public.
+# It needs Use the camera on and camera access granted to the build. The timer screenshot starts a real
 # timer; the script always stops it again, including on failure.
 
 set -euo pipefail
@@ -188,8 +189,8 @@ open_panel() {
     echo "The panel did not open."; return 1
 }
 
-# Find the control whose AXIdentifier (or radio button title) matches $1 and
-# either press it or print its "x y w h" in screen points ($2: press | frame).
+# Find the control whose AXIdentifier matches $1 and either press it or print
+# its "x y w h" in screen points ($2: press | frame).
 control() {
     osascript <<AS
 tell application "System Events" to tell (first process whose unix id is $PID)
@@ -198,9 +199,6 @@ tell application "System Events" to tell (first process whose unix id is $PID)
         set hit to false
         try
             set hit to ((value of attribute "AXIdentifier" of e) is "$1")
-        end try
-        try
-            if not hit then set hit to (role of e is "AXRadioButton" and description of e is "$1")
         end try
         if hit then
             if "$2" is "press" then
@@ -226,7 +224,6 @@ cleanup() {
     [ -n "$BACKDROP_PID" ] && kill "$BACKDROP_PID" 2>/dev/null
     # Never leave a timer armed or the camera on.
     if timer_running 2>/dev/null; then open_panel && press stopTimer || true; fi
-    open_panel >/dev/null 2>&1 && press Timer >/dev/null 2>&1 || true
     # Quit the fresh build too: left running, it makes an installed copy quit on
     # launch (the single-instance check).
     [ -n "$PID" ] && kill "$PID" 2>/dev/null
@@ -276,7 +273,6 @@ capture_panel() {
 # --- Screens ---------------------------------------------------------------------
 
 open_panel
-press Timer
 sleep 1
 capture_panel manual-timer
 
@@ -287,33 +283,25 @@ press stopTimer
 sleep 1
 if timer_running; then echo "The timer did not stop."; exit 1; fi
 
-press Camera
-sleep 5 # camera start-up and face detection
-FRAME=""
-for _ in $(seq 1 10); do # the feed appears once camera access is confirmed
-    open_panel
-    FRAME=$(frame_of cameraPreview 2>"$WORK/frame.err" || true)
-    [ -n "$FRAME" ] && break
-    sleep 1.5
-done
-[ -n "$FRAME" ] || { cat "$WORK/frame.err"; echo "No camera feed: grant camera access and rerun."; exit 1; }
-read -r _ PX PY _ _ < <(panel)
-read -r FX FY FW FH <<<"$FRAME"
-capture_panel camera-mode
-# The whole preview, border included: the video shows through the border's
-# antialiased edge. 12 pt matches its corner radius in CameraModeView.
-helper blur "$OUT/camera-mode.png" $((FX - PX + MARGIN)) $((FY - PY + MARGIN)) "$FW" "$FH" 12
-echo "Blurred the camera feed in $OUT/camera-mode.png"
-press Timer
-sleep 1
-
 open_panel
 press openSettings
 sleep 2
+ax 'set frontmost to true' >/dev/null
+press toggleCameraPreview
+sleep 5 # the camera preview starts and finds a face
+# Measured after the preview opened: it makes the window taller.
 read -r SETTINGS_ID SX SY SW SH < <(helper named "$PID" "$APP_NAME Settings")
 [ -n "${SETTINGS_ID:-}" ] || { echo "The settings window did not open."; exit 1; }
 show_backdrop "$SX" "$SY" "$SW" "$SH"
 ax 'set frontmost to true' >/dev/null # above the backdrop, key so controls render active
 sleep 1
+FRAME=$(frame_of cameraPreview 2>"$WORK/frame.err" || true)
+[ -n "$FRAME" ] || { cat "$WORK/frame.err"; echo "No camera preview: turn on Use the camera, grant access, rerun."; exit 1; }
+read -r FX FY FW FH <<<"$FRAME"
 capture_region settings "$SX" "$SY" "$SW" "$SH"
+# The whole preview and 2 pt beyond: the video shows through the border's
+# antialiased edge, and the accessibility frame is rounded to whole points.
+# Radius 10: CameraPreviewRow's 8 pt corners plus the 2 pt margin.
+helper blur "$OUT/settings.png" $((FX - SX + MARGIN - 2)) $((FY - SY + MARGIN - 2)) $((FW + 4)) $((FH + 4)) 10
+echo "Blurred the camera feed in $OUT/settings.png"
 ax 'click button 1 of window 1' >/dev/null || true

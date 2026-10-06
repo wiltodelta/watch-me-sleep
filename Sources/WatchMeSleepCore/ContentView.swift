@@ -1,80 +1,35 @@
 import SwiftUI
 import AppKit
-import AVFoundation
 
 public struct ContentView: View {
     @StateObject private var timerManager = TimerManager.shared
-    @StateObject private var sleepManager = SleepDetectionManager.shared
-    @State private var selectedMode: TimerMode = .manual
     @State private var selectedHours: Double = 1.5
 
     public init() {}
 
     public var body: some View {
         VStack(spacing: 0) {
-            // A text-only segmented control needs no introductory label (HIG).
-            Picker("Mode", selection: $selectedMode) {
-                Text("Timer").tag(TimerMode.manual)
-                Text("Camera").tag(TimerMode.camera)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 12)
+            NightWatchStatusView()
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
 
             Divider()
             Group {
-                switch selectedMode {
-                case .manual:
-                    if timerManager.isTimerActive {
-                        ActiveTimerView()
-                    } else {
-                        InactiveTimerView(selectedHours: $selectedHours)
-                    }
-                case .camera:
-                    CameraModeView()
+                if timerManager.isTimerActive {
+                    ActiveTimerView()
+                } else {
+                    InactiveTimerView(selectedHours: $selectedHours)
                 }
             }
-            .animation(.easeInOut(duration: 0.12), value: selectedMode)
             .animation(.easeInOut(duration: 0.18), value: timerManager.isTimerActive)
 
             Divider()
 
-            // Common settings footer
             CommonSettingsView()
         }
         // The panel provides the material backing, so the content stays
         // transparent and lets it show through.
-        .onAppear {
-            sleepManager.setCameraModeEnabled(selectedMode == .camera)
-
-            // Notify status bar to update icon on launch
-            NotificationCenter.default.post(name: .cameraModeChanged, object: nil)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .cameraModeDisabled)) { _ in
-            // Switch back to manual mode when camera mode is disabled externally (e.g., after system wake)
-            if selectedMode == .camera {
-                selectedMode = .manual
-            }
-        }
-        .onChange(of: selectedMode) { _, newMode in
-            // Stop active timer when switching modes
-            if timerManager.isTimerActive {
-                timerManager.stopTimer()
-            }
-
-            sleepManager.setCameraModeEnabled(newMode == .camera)
-
-            // Notify status bar to update icon
-            NotificationCenter.default.post(name: .cameraModeChanged, object: nil)
-        }
     }
-}
-
-enum TimerMode {
-    case manual
-    case camera
 }
 
 struct CommonSettingsView: View {
@@ -349,17 +304,18 @@ struct ActiveTimerView: View {
         return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
 
-    // Created once: the view redraws every second while the timer runs.
-    private static let targetTimeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter
-    }()
-
     private func formatTargetTime(_ remainingTime: TimeInterval) -> String {
-        Self.targetTimeFormatter.string(from: Date().addingTimeInterval(remainingTime))
+        shortTimeFormatter.string(from: Date().addingTimeInterval(remainingTime))
     }
 }
+
+/// A clock time as the person's settings write it, e.g. "23:40" or "11:40 PM".
+/// Created once: the panel redraws every second while a timer runs.
+let shortTimeFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.timeStyle = .short
+    return formatter
+}()
 
 private let spokenDurationFormatter: DateComponentsFormatter = {
     let formatter = DateComponentsFormatter()

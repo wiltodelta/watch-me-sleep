@@ -27,7 +27,8 @@ final class SystemVolumeFader: VolumeControl {
 
     func fade(to fraction: Double) {
         if saved == nil {
-            guard let device = Self.defaultOutputDevice(), let volume = Self.volume(of: device) else { return }
+            guard let device = CoreAudioProperty.defaultOutputDevice(),
+                let volume = Self.volume(of: device) else { return }
             saved = (device, volume)
             log.info("Fading volume from \(volume, privacy: .public)")
         }
@@ -61,41 +62,15 @@ final class SystemVolumeFader: VolumeControl {
 
     // MARK: - CoreAudio
 
-    private static func defaultOutputDevice() -> AudioDeviceID? {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var device = AudioDeviceID(kAudioObjectUnknown)
-        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
-        let status = AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &device
-        )
-        guard status == noErr, device != kAudioObjectUnknown else { return nil }
-        return device
-    }
-
-    private static func volumeAddress() -> AudioObjectPropertyAddress {
-        AudioObjectPropertyAddress(
-            mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
-            mScope: kAudioDevicePropertyScopeOutput,
-            mElement: kAudioObjectPropertyElementMain
-        )
-    }
-
     private static func volume(of device: AudioDeviceID) -> Float32? {
-        var address = volumeAddress()
-        guard AudioObjectHasProperty(device, &address) else { return nil }
-        var volume = Float32(0)
-        var size = UInt32(MemoryLayout<Float32>.size)
-        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &volume) == noErr else { return nil }
-        return volume
+        CoreAudioProperty.read(device, volumeSelector, scope: kAudioDevicePropertyScopeOutput, as: Float32(0))
     }
+
+    private static let volumeSelector = kAudioHardwareServiceDeviceProperty_VirtualMainVolume
 
     @discardableResult
     private static func setVolume(_ volume: Float32, of device: AudioDeviceID) -> Bool {
-        var address = volumeAddress()
+        var address = CoreAudioProperty.address(volumeSelector, scope: kAudioDevicePropertyScopeOutput)
         var settable = DarwinBoolean(false)
         guard AudioObjectIsPropertySettable(device, &address, &settable) == noErr, settable.boolValue else {
             return false

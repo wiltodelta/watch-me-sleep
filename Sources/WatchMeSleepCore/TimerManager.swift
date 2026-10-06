@@ -25,10 +25,26 @@ public class TimerManager: ObservableObject {
     private var timer: Timer?
     private var targetDate: Date?
     private var finalPhaseStart: Date?
+    private var finalPhaseCheck: FinalPhaseCheck?
+    /// Bumped per timer, so a late answer to an earlier final phase check
+    /// cannot mark a later timer.
+    private var generation = 0
 
-    // Seam for tests: invoked when the timer reaches zero. Defaults to putting
-    // the computer to sleep; tests override it so the suite never sleeps the machine.
-    var sleepHandler: () -> Void = {}
+    /// Asked once per final minute by whoever started the timer; it calls back
+    /// when it finds someone still there (the night watch's camera look).
+    public typealias FinalPhaseCheck = (_ someoneThere: @escaping () -> Void) -> Void
+
+    public enum SleepKind {
+        /// The timer ran out: sleep, or only turn the display off while work
+        /// holds the Mac awake.
+        case unlessWorkHolds
+        /// Someone pressed Sleep Now: they are awake and chose it.
+        case always
+    }
+
+    // Seam for tests: performs the sleep. Defaults to putting the computer to
+    // sleep; tests override it so the suite never sleeps the machine.
+    var sleepHandler: (SleepKind) -> Void = { _ in }
 
     // Seam for tests: the current-time provider. Production uses the wall clock;
     // tests inject a controllable clock so they can advance time synchronously
@@ -36,24 +52,27 @@ public class TimerManager: ObservableObject {
     var now: () -> Date = Date.init
 
     // Seam for tests: seconds since the last keyboard or mouse input.
-    var idleSecondsProvider: () -> TimeInterval = { AutoActivationManager.systemIdleSeconds() }
+    var idleSecondsProvider: () -> TimeInterval = { SystemSignals.idleSeconds() }
 
     // Seam for tests: the output volume the final phase fades.
     var volume: VolumeControl = SystemVolumeFader()
 
     private init() {
-        sleepHandler = { [weak self] in self?.putComputerToSleep() }
-        NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didWakeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.handleWake()
+        sleepHandler = { [weak self] kind in self?.putComputerToSleep(kind) }
+        // The display waking counts too: with work holding the Mac, only the
+        // display went off and the system never slept.
+        for name in [NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification] {
+            let center = NSWorkspace.shared.notificationCenter
+            center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                self?.handleWake()
+            }
         }
     }
 
-    public func startTimer(hours: Double) {
+    public func startTimer(hours: Double, finalPhaseCheck: FinalPhaseCheck? = nil) {
         stopTimer()
+        generation += 1
+        self.finalPhaseCheck = finalPhaseCheck
 
         totalTime = hours * 3600
         remainingTime = totalTime
@@ -81,7 +100,17 @@ public class TimerManager: ObservableObject {
         remainingTime = 0
         totalTime = 0
         targetDate = nil
+        finalPhaseCheck = nil
         endFinalPhase()
+        notifyTimerUpdated()
+    }
+
+    /// Someone is still there during the final minute (input, or the final
+    /// phase check): the volume comes back and zero postpones instead of sleeping.
+    func markUserActive() {
+        guard isInFinalPhase, !isUserActive else { return }
+        isUserActive = true
+        volume.restore()
         notifyTimerUpdated()
     }
 
@@ -134,14 +163,16 @@ public class TimerManager: ObservableObject {
     private func updateFinalPhase() {
         if finalPhaseStart == nil {
             finalPhaseStart = now()
+            let asked = generation
+            finalPhaseCheck? { [weak self] in
+                guard let self, self.generation == asked else { return }
+                self.markUserActive()
+            }
         }
 
         if userWasActive(since: finalPhaseStart) {
-            if !isUserActive {
-                isUserActive = true
-                volume.restore()
-            }
-        } else {
+            markUserActive()
+        } else if !isUserActive {
             volume.fade(to: remainingTime / Self.finalPhaseDuration)
         }
     }
@@ -162,25 +193,29 @@ public class TimerManager: ObservableObject {
     /// Mac in active use is never what the timer was set for, so it moves on by
     /// `postponeMinutes` instead.
     private func finish() {
-        if userWasActive(since: finalPhaseStart) {
+        if isUserActive || userWasActive(since: finalPhaseStart) {
             Logger.app("timer").info("Mac in use at zero; postponing \(Self.postponeMinutes) minutes")
             extend(minutes: Self.postponeMinutes, from: now())
             return
         }
-        sleepNow()
+        deactivate()
+        sleepHandler(.unlessWorkHolds)
     }
 
-    private func putComputerToSleep() {
-        // Disable camera mode before sleep (switch back to manual mode)
-        SleepDetectionManager.shared.setCameraModeEnabled(false)
+    /// Sleeps the Mac. At the end of a timer, while work holds the Mac awake
+    /// (`caffeinate`, a download, a build), only the display goes off: sleeping
+    /// would cut that work off, and the Mac sleeps by itself once it lets go.
+    private func putComputerToSleep(_ kind: SleepKind) {
+        let work = kind == .unlessWorkHolds ? SystemSignals.wakeHolders().work : []
+        let command = work.isEmpty ? "sleepnow" : "displaysleepnow"
+        if !work.isEmpty {
+            let holders = work.joined(separator: ", ")
+            Logger.app("timer").info("Work holds the Mac awake (\(holders, privacy: .public)); display off only")
+        }
 
-        // Notify UI to switch back to manual mode
-        NotificationCenter.default.post(name: .cameraModeDisabled, object: nil)
-
-        // Use pmset command (most reliable method)
         let task = Process()
         task.launchPath = "/usr/bin/pmset"
-        task.arguments = ["sleepnow"]
+        task.arguments = [command]
 
         do {
             try task.run()
@@ -222,10 +257,10 @@ public class TimerManager: ObservableObject {
         updateTimer()
     }
 
-    /// Sleeps the Mac now and drops any running timer, so it cannot fire again
-    /// the moment the Mac wakes.
+    /// Sleeps the Mac now, as asked, and drops any running timer, so it cannot
+    /// fire again the moment the Mac wakes.
     public func sleepNow() {
         deactivate()
-        sleepHandler()
+        sleepHandler(.always)
     }
 }

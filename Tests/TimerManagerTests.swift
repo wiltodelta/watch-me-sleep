@@ -24,6 +24,7 @@ final class FakeVolume: VolumeControl {
 final class TimerManagerTests: XCTestCase {
     var timerManager: TimerManager!
     var didTriggerSleep = false
+    var sleepKinds: [TimerManager.SleepKind] = []
     var fakeVolume: FakeVolume!
     var idleSeconds: TimeInterval = .infinity
 
@@ -33,7 +34,11 @@ final class TimerManagerTests: XCTestCase {
         timerManager.stopTimer()
         // Override the sleep seam so the suite never actually sleeps the machine.
         didTriggerSleep = false
-        timerManager.sleepHandler = { [weak self] in self?.didTriggerSleep = true }
+        sleepKinds = []
+        timerManager.sleepHandler = { [weak self] kind in
+            self?.didTriggerSleep = true
+            self?.sleepKinds.append(kind)
+        }
         // Reset the clock seam so a frozen clock never leaks between tests (shared singleton).
         timerManager.now = Date.init
         // Nobody at the keyboard unless a test says so, and no real volume changes.
@@ -130,6 +135,66 @@ final class TimerManagerTests: XCTestCase {
         idleSeconds = 80
         advance(50)
         XCTAssertTrue(didTriggerSleep)
+    }
+
+    func testSomeoneThereInTheFinalMinutePostponesLikeInput() {
+        let advance = startFrozenTimer()
+        advance(15 * 60 - 30)
+
+        timerManager.markUserActive()
+        XCTAssertTrue(timerManager.isUserActive)
+        XCTAssertEqual(fakeVolume.restores, 1)
+        advance(30)
+
+        XCTAssertFalse(didTriggerSleep)
+        XCTAssertTrue(timerManager.isTimerActive)
+    }
+
+    func testTheEndOfATimerSparesWorkButSleepNowDoesNot() {
+        let advance = startFrozenTimer()
+        advance(15 * 60)
+        timerManager.startTimer(hours: 1)
+        timerManager.sleepNow()
+
+        XCTAssertEqual(sleepKinds, [.unlessWorkHolds, .always])
+    }
+
+    func testTheFinalPhaseCheckIsAskedOncePerFinalMinute() {
+        var fakeNow = Date()
+        timerManager.now = { fakeNow }
+        var asked: [() -> Void] = []
+        timerManager.startTimer(hours: 0.25) { asked.append($0) }
+
+        fakeNow = fakeNow.addingTimeInterval(15 * 60 - 60 + 1)
+        timerManager.tick()
+        fakeNow = fakeNow.addingTimeInterval(10)
+        timerManager.tick()
+        XCTAssertEqual(asked.count, 1)
+
+        asked[0]()
+        XCTAssertTrue(timerManager.isUserActive, "Its answer counts as someone there")
+    }
+
+    func testALateAnswerCannotMarkALaterTimer() {
+        var fakeNow = Date()
+        timerManager.now = { fakeNow }
+        var asked: [() -> Void] = []
+        timerManager.startTimer(hours: 0.25) { asked.append($0) }
+        fakeNow = fakeNow.addingTimeInterval(15 * 60 - 30)
+        timerManager.tick()
+
+        timerManager.startTimer(hours: 0.25)
+        fakeNow = fakeNow.addingTimeInterval(15 * 60 - 30)
+        timerManager.tick()
+        asked[0]()
+
+        XCTAssertFalse(timerManager.isUserActive)
+    }
+
+    func testSomeoneThereOutsideTheFinalMinuteIsIgnored() {
+        _ = startFrozenTimer()
+        timerManager.markUserActive()
+        XCTAssertFalse(timerManager.isUserActive)
     }
 
     func testAddingTimeDuringFinalPhaseEndsItAndRestoresVolume() {
