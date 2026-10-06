@@ -6,29 +6,44 @@ struct NightWatchStatusView: View {
     @ObservedObject private var supervisor = SleepSupervisor.shared
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
-            // Decorative: the title already says it.
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundStyle(Color.panelSecondary)
-                .frame(width: 22)
+        let isOff = supervisor.status == .off
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                ZStack {
+                    Circle().fill(Color.accentColor.opacity(isOff ? 0.08 : 0.16))
+                    Image(systemName: icon)
+                        .font(.title2)
+                        .foregroundStyle(isOff ? Color.panelSecondary : Color.accentColor)
+                }
+                .frame(width: 44, height: 44)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(supervisor.statusTitle)
-                    .font(.callout.weight(.medium))
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(Color.panelSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(supervisor.statusTitle)
+                        .font(.title3.weight(.semibold))
+                    Text(detail)
+                        .font(.callout)
+                        .foregroundStyle(Color.panelSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("nightWatchStatus")
+                Spacer(minLength: 0)
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("nightWatchStatus")
-            Spacer(minLength: 0)
-            // The way out of "off" is right here, not a trip to Settings (UX-12).
-            if supervisor.status == .off {
-                Button("Turn On") { supervisor.isEnabled = true }
-                    .controlSize(.regular)
+            if isOff {
+                Button("Turn On Night Watch") { supervisor.isEnabled = true }
+                    .panelDefaultAction(true)
+                    .controlSize(.large)
+                    .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("turnOnNightWatch")
+            } else {
+                HStack(spacing: 14) {
+                    Label(supervisor.bedtimeRangeText, systemImage: "bed.double")
+                    if supervisor.cameraUsable {
+                        Label("Camera on", systemImage: "video")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(Color.panelSecondary)
             }
         }
     }
@@ -45,7 +60,7 @@ struct NightWatchStatusView: View {
     private var detail: String {
         switch supervisor.status {
         case .off:
-            return "It sleeps the Mac once you fall asleep."
+            return "Sleeps the Mac once you fall asleep in front of a film or music."
         case .outsideHours:
             return "Until then, set a timer below."
         case .inUse:

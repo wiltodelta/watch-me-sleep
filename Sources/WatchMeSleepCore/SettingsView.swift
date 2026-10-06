@@ -72,7 +72,7 @@ public struct SettingsView: View {
         } header: {
             Text("Night watch")
         } footer: {
-            Text(nightWatchFooter)
+            Text(nightWatchFooter).foregroundStyle(Color.panelSecondary)
         }
     }
 
@@ -138,6 +138,7 @@ public struct SettingsView: View {
         } footer: {
             Text(launchManager.errorMessage.map { "Couldn't change this: \($0)" }
                  ?? "Start Watch Me While I Fall Asleep automatically when you log in to your Mac.")
+                .foregroundStyle(Color.panelSecondary)
         }
     }
 
@@ -158,6 +159,7 @@ public struct SettingsView: View {
             Text("Updates")
         } footer: {
             Text("Checks once a day and installs a new version when you choose to.")
+                .foregroundStyle(Color.panelSecondary)
         }
     }
 

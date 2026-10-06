@@ -3,6 +3,7 @@ import AppKit
 
 public struct ContentView: View {
     @StateObject private var timerManager = TimerManager.shared
+    @ObservedObject private var supervisor = SleepSupervisor.shared
     @State private var selectedHours: Double = 1.5
 
     public init() {}
@@ -10,15 +11,17 @@ public struct ContentView: View {
     public var body: some View {
         VStack(spacing: 0) {
             NightWatchStatusView()
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 18)
 
             Divider()
             Group {
                 if timerManager.isTimerActive {
                     ActiveTimerView()
                 } else {
-                    InactiveTimerView(selectedHours: $selectedHours)
+                    // "Turn On Night Watch" is the default action while the watch is off.
+                    InactiveTimerView(selectedHours: $selectedHours,
+                                      isDefaultAction: supervisor.status != .off)
                 }
             }
             .animation(.easeInOut(duration: 0.18), value: timerManager.isTimerActive)
@@ -75,38 +78,25 @@ struct CommonSettingsView: View {
 
 struct InactiveTimerView: View {
     @Binding var selectedHours: Double
+    let isDefaultAction: Bool
 
     private let range: ClosedRange<Double> = 0.25...12
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Time display
-            VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Or sleep after a set time")
+                    .font(.headline)
+                Spacer()
                 Text(DurationFormat.compact(hours: selectedHours))
-                    .font(.system(size: 48, weight: .regular, design: .rounded))
-                    .foregroundStyle(.primary)
-
-                durationSlider
-                    .labelsHidden()
-                    .accessibilityValue(DurationFormat.words(hours: selectedHours))
-                    .controlSize(.small)
-
-                HStack {
-                    Text(DurationFormat.compact(hours: range.lowerBound))
-                    Spacer()
-                    Text(DurationFormat.compact(hours: range.upperBound))
-                }
-                .font(.caption)
-                .foregroundStyle(Color.panelSecondary)
-                .accessibilityHidden(true)
+                    .font(.title3.weight(.medium))
+                    .monospacedDigit()
             }
-            .padding(20)
-            .padding(.top, 12)
-
-            Divider()
-
-            // Presets
-            Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+            durationSlider
+                .labelsHidden()
+                .accessibilityValue(DurationFormat.words(hours: selectedHours))
+                .controlSize(.small)
+            Grid(horizontalSpacing: 8, verticalSpacing: 8) {
                 GridRow {
                     ForEach(TimerManager.presetHours.prefix(4), id: \.self) { hours in
                         PresetButton(hours: hours, selectedHours: $selectedHours)
@@ -118,22 +108,16 @@ struct InactiveTimerView: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-
-            Divider()
-
-            // Start button
             Button("Start Timer") {
                 TimerManager.shared.startTimer(hours: selectedHours)
             }
-            .buttonStyle(.borderedProminent)
+            .panelDefaultAction(isDefaultAction)
             .controlSize(.large)
-            .keyboardShortcut(.defaultAction)
+            .frame(maxWidth: .infinity)
             .accessibilityIdentifier("startTimer")
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
     }
 
     /// Tick marks on whole hours only (HIG: tick marks add clarity). macOS 26

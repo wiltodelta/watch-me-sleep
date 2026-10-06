@@ -4,6 +4,8 @@ extension Color {
     /// Secondary text on the glass panels. The system `.secondary` measured
     /// 2.91:1 in light and 3.15:1 in dark there (UX-01), under the 4.5:1 small
     /// text needs; this keeps the softer look at a readable contrast.
+    /// The Settings footers use it too: the system form footer measured 3.95:1
+    /// in light, this 4.95:1.
     static let panelSecondary = Color.primary.opacity(0.66)
 }
 
@@ -13,5 +15,15 @@ extension View {
     /// WCAG 2.5.3).
     func durationAccessibility(visible: String, spoken: String) -> some View {
         accessibilityLabel(spoken).accessibilityInputLabels([Text(visible), Text(spoken)])
+    }
+
+    /// The panel's default action: prominent, and Return presses it.
+    @ViewBuilder
+    func panelDefaultAction(_ isDefault: Bool) -> some View {
+        if isDefault {
+            buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+        } else {
+            self
+        }
     }
 }

@@ -258,7 +258,8 @@ public final class SleepSupervisor: ObservableObject {
         Date(timeIntervalSinceReferenceDate: (date.timeIntervalSinceReferenceDate / 60).rounded(.up) * 60)
     }
 
-    private var cameraUsable: Bool {
+    /// The camera will really look: chosen, and access given.
+    var cameraUsable: Bool {
         usesCamera && cameraAuthorized()
     }
 
@@ -326,6 +327,9 @@ public final class SleepSupervisor: ObservableObject {
 
     /// "10:30 PM", for the status texts.
     public var bedtimeStartText: String { BedtimeFormat.time(bedtimeStart) }
+
+    /// "10:30 PM – 6:00 AM", for the panel.
+    var bedtimeRangeText: String { "\(bedtimeStartText) – \(BedtimeFormat.time(bedtimeEnd))" }
 
     /// The status in one line: the panel's status title and the menu bar
     /// tooltip read the same words (UX-10).
