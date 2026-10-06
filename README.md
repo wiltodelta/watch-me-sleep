@@ -24,6 +24,12 @@ Timer:
 - Right-click the icon for a quick menu: start a common timer, stop the current
   one, or open Settings.
 - Circular progress ring, and a moon icon that fills in while a timer runs.
+- A gentle last minute: a small panel in the corner counts down with **+15 Min**
+  and **Sleep Now**, and the volume fades out. It shows over full-screen video
+  and does not take the keyboard from the player. The volume comes back when
+  the Mac wakes.
+- Never sleeps a Mac in use: touch the mouse or keyboard during that last
+  minute and the timer moves on by 15 minutes instead.
 
 Camera mode:
 
@@ -39,6 +45,9 @@ Auto-start and system:
 
 - Optionally arm a timer on its own once the Mac sits idle for a set number of
   minutes inside a nightly window, so you never forget to start one.
+- With camera access, auto-start takes a short look first: closed eyes, or
+  nobody there (or too dark to see), start a 15-minute timer; open eyes leave
+  the Mac alone, so a film you are still watching is not cut off.
 - Launch at login.
 - In-place updates: checks once a day and installs a new version when you
   choose to (Sparkle).
@@ -88,6 +97,10 @@ mv "Watch Me While I Fall Asleep.app" /Applications/
 2. Set a duration with the slider or a preset, then click **Start Timer**.
 3. The icon fills in while the timer runs. Click it again to see the remaining
    time, add time, or stop.
+4. A minute before the end, a panel in the top-right corner counts down and the
+   volume fades. Leave it alone and the Mac sleeps; use the mouse or keyboard
+   and it stays awake another 15 minutes. A timer that ran out while the Mac
+   was already asleep (lid closed) is dropped on wake.
 
 Right-click the icon for a quick menu that starts a common timer
 (15m/30m/1h/1.5h/2h), stops the current one, or opens Settings.
@@ -108,13 +121,24 @@ many idle minutes should pass, and the timer length. When the Mac sits idle past
 that threshold inside the window, a timer arms on its own. It stays out of the
 way while a timer is already running or Camera mode is active.
 
+With **Check with the camera first** on (the default once the app has camera
+access), the camera turns on for up to 30 seconds before anything starts:
+
+- Eyes closed for about 15 seconds, or no face at all: a 15-minute timer starts.
+- Eyes open: nothing starts, and it looks again in 10 minutes.
+- No camera access, or no picture (lid closed): the timer length you chose
+  starts, as without the check.
+
+It never asks for camera access at night; the switch asks when you turn it on.
+
 ## Settings
 
 Open Settings from **Settings…** in the panel, from the right-click menu, or by
 opening the app again from Finder or Spotlight (useful if its menu bar icon is
 hidden).
 
-- **Auto-start when idle**: the nightly window, idle threshold, and timer length.
+- **Auto-start when idle**: the nightly window, idle threshold, timer length,
+  and the camera check.
 - **Startup**: launch at login.
 - **Updates**: current version, automatic daily checks on or off, and a **Check
   for Updates…** button.

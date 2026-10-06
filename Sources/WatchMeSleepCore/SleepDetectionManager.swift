@@ -6,6 +6,11 @@ import AppKit
 public final class SleepDetectionManager: NSObject, ObservableObject {
     public static let shared = SleepDetectionManager()
 
+    /// System Settings > Privacy & Security > Camera.
+    static let cameraPrivacySettingsURL = URL(
+        string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera"
+    )
+
     @Published public var isCameraModeEnabled: Bool = false
     @Published public var isCameraAuthorized: Bool = false
     @Published public var isSessionRunning: Bool = false
@@ -22,7 +27,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
     private var isSessionConfigured = false
 
     private let videoOutput = AVCaptureVideoDataOutput()
-    private let videoOutputQueue = DispatchQueue(label: "SleepDetectionManager.VideoOutput", qos: .userInitiated)
+    let videoOutputQueue = DispatchQueue(label: "SleepDetectionManager.VideoOutput", qos: .userInitiated)
 
     private let sequenceHandler = VNSequenceRequestHandler()
 
@@ -38,6 +43,13 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
     // Activity check timer (1.5-hour periodic check)
     private var activityCheckTimer: Timer?
     private let activityCheckInterval: TimeInterval = 1.5 * 60 * 60 // 1.5 hours
+
+    // Auto-start's short look (`checkPresence`). The check and its completion are
+    // touched only on `videoOutputQueue`; the flag and generation only on main.
+    var presenceCheck: PresenceCheck?
+    var presenceCompletion: ((PresenceCheck.Verdict) -> Void)?
+    var isCheckingPresence = false
+    var presenceGeneration = 0
 
     private override init() {
         super.init()
@@ -75,9 +87,13 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
                 self?.requestAuthorizationAndStart()
             }
             startActivityCheckTimer()
+            cancelPresenceCheck()
         } else {
-            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                self?.stopSession()
+            // A presence check owns the session while it runs and stops it itself.
+            if !isCheckingPresence {
+                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                    self?.stopSession()
+                }
             }
             stopActivityCheckTimer()
             resetDetectionState()
@@ -122,7 +138,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
         }
     }
 
-    private func startSessionIfNeeded() {
+    func startSessionIfNeeded() {
         sessionQueue.async {
             if self.session.isRunning {
                 return
@@ -208,7 +224,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
         session.commitConfiguration()
     }
 
-    private func stopSession() {
+    func stopSession() {
         sessionQueue.async {
             if self.session.isRunning {
                 self.session.stopRunning()
@@ -231,7 +247,7 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
     }
 
     private func process(sampleBuffer: CMSampleBuffer) {
-        guard isCameraModeEnabled,
+        guard isCameraModeEnabled || presenceCheck != nil,
             let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
             return
         }
@@ -276,6 +292,10 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
     /// No face or eyes this frame. The tracker tolerates a run of missed frames; once
     /// it drops the window we flag the face as lost and prompt the user to reappear.
     private func handleFaceLost() {
+        if presenceCheck != nil {
+            recordPresence(ear: nil)
+            return
+        }
         guard tracker.recordMissedFrame() else { return }
         setFaceDetected(false)
         DispatchQueue.main.async {
@@ -288,9 +308,13 @@ public final class SleepDetectionManager: NSObject, ObservableObject {
     /// Face and both eyes found. Feed the average EAR to the tracker and translate its
     /// decision into side effects, then refresh the throttled status message.
     private func handleFaceFound(leftEye: VNFaceLandmarkRegion2D, rightEye: VNFaceLandmarkRegion2D) {
-        setFaceDetected(true)
-
         let averageRatio = (EyeAspectRatio.ratio(for: leftEye) + EyeAspectRatio.ratio(for: rightEye)) / 2.0
+        if presenceCheck != nil {
+            recordPresence(ear: averageRatio)
+            return
+        }
+
+        setFaceDetected(true)
         applyDecision(tracker.record(ear: averageRatio))
 
         throttleStatusUpdate()

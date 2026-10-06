@@ -14,8 +14,9 @@ You are a **principal Swift/macOS engineer** maintaining a menu bar app that aut
 - `swiftlint` must be installed for the lint step (`brew install swiftlint`); `maintain.sh` skips linting if it is missing.
 - The app quits on launch if another instance with its bundle id runs; test a second copy beside the installed one under a different `CFBundleIdentifier` (and remove its TCC rows afterwards).
 - "Launch at login" registers whichever bundle is running, so toggling it in a dev build points the login item at the repo copy; check with `sfltool dumpbtm`.
+- Running the bare `.build/debug/WatchMeSleep` shows Sparkle's modal "Unable to Check For Updates", and its modal loop stalls the timer's ticks; it and `xctest` also hold no Camera grant, so the auto-start camera check answers `unavailable` there. Exercise the camera path from the signed bundle.
 - Stale `.build` after the repo moves paths fails with a `SwiftShims ... module cache path` error - fix with `rm -rf .build`.
-- The seams the global testing rules require are `TimerManager.sleepHandler` (unoverridden, it runs the real `pmset sleepnow`), the `now: () -> Date` clock plus `tick()` (worked example: `TimerManagerTests.testVeryShortTimer`), and `UserDefaults(suiteName:)`. Reset `now` in `setUp`/`tearDown`, because the manager is a shared singleton and the override outlives the test that set it.
+- The seams the global testing rules require are `TimerManager.sleepHandler` (unoverridden, it runs the real `pmset sleepnow`), the `now: () -> Date` clock plus `tick()` (worked example: `TimerManagerTests.testVeryShortTimer`), `TimerManager.idleSecondsProvider` and `TimerManager.volume` (unoverridden, the real HID idle time and the real output volume of the final minute), `AutoActivationManager.checkPresence` (unoverridden, it turns the real camera on), and `UserDefaults(suiteName:)`. Reset `now` in `setUp`/`tearDown`, because the manager is a shared singleton and the override outlives the test that set it.
 
 ## UI
 

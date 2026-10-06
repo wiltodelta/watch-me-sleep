@@ -16,12 +16,19 @@ final class AutoActivationManagerTests: XCTestCase {
         manager.timerHours = 1.0
         manager.isTimerActive = { false }
         manager.isCameraModeEnabled = { false }
+        manager.checksWithCamera = true
+        manager.isChecking = false
+        manager.nextCheck = .distantPast
+        startedHours = []
+        checks = 0
+        pendingCheck = nil
     }
 
     override func tearDown() {
         manager.isEnabled = false
         manager.defaults.removePersistentDomain(forName: "AutoActivationTests")
         manager.defaults = .standard
+        manager.now = Date.init
         super.tearDown()
     }
 
@@ -83,14 +90,108 @@ final class AutoActivationManagerTests: XCTestCase {
         XCTAssertFalse(manager.shouldActivate(now: date(hour: 23), idleSeconds: 60 * 60))
     }
 
-    func testTickStartsTimerWhenConditionsMet() {
-        var startedHours: Double?
-        manager.startTimer = { startedHours = $0 }
+    // MARK: - tick
+
+    private var startedHours: [Double] = []
+    private var checks = 0
+    private var pendingCheck: ((PresenceCheck.Verdict) -> Void)?
+    private var clock = Date()
+
+    /// Late at night, idle well past the threshold, with fakes for every effect.
+    private func armForTick() {
+        clock = date(hour: 23)
+        manager.now = { [unowned self] in self.clock }
         manager.idleSecondsProvider = { 60 * 60 }
-        // shouldActivate is window-gated; verify the wiring drives startTimer with the configured duration.
-        if manager.shouldActivate(now: date(hour: 23), idleSeconds: manager.idleSecondsProvider()) {
-            manager.startTimer(manager.timerHours)
+        manager.startTimer = { [unowned self] in self.startedHours.append($0) }
+        manager.checkPresence = { [unowned self] completion in
+            self.checks += 1
+            self.pendingCheck = completion
         }
-        XCTAssertEqual(startedHours, 1.0)
+    }
+
+    private func answer(_ verdict: PresenceCheck.Verdict) {
+        let completion = pendingCheck
+        pendingCheck = nil
+        completion?(verdict)
+    }
+
+    func testTickWithoutCameraStartsTheConfiguredTimer() {
+        armForTick()
+        manager.checksWithCamera = false
+
+        manager.tick()
+
+        XCTAssertEqual(startedHours, [1.0])
+        XCTAssertEqual(checks, 0)
+    }
+
+    func testTickLooksBeforeStarting() {
+        armForTick()
+
+        manager.tick()
+
+        XCTAssertEqual(checks, 1)
+        XCTAssertTrue(startedHours.isEmpty, "Nothing starts before the camera answers")
+    }
+
+    func testClosedEyesStartAShortTimer() {
+        armForTick()
+        manager.tick()
+
+        answer(.asleep)
+
+        XCTAssertEqual(startedHours, [AutoActivationManager.confirmedTimerHours])
+    }
+
+    func testNobodyThereStartsAShortTimer() {
+        armForTick()
+        manager.tick()
+
+        answer(.absent)
+
+        XCTAssertEqual(startedHours, [AutoActivationManager.confirmedTimerHours])
+    }
+
+    func testNoCameraFallsBackToTheConfiguredTimer() {
+        armForTick()
+        manager.tick()
+
+        answer(.unavailable)
+
+        XCTAssertEqual(startedHours, [1.0])
+    }
+
+    func testAwakeWaitsBeforeLookingAgain() {
+        armForTick()
+        manager.tick()
+        answer(.awake)
+        XCTAssertTrue(startedHours.isEmpty)
+
+        clock = clock.addingTimeInterval(AutoActivationManager.recheckInterval - 30)
+        manager.tick()
+        XCTAssertEqual(checks, 1, "No second look inside the recheck interval")
+
+        clock = clock.addingTimeInterval(30)
+        manager.tick()
+        XCTAssertEqual(checks, 2)
+    }
+
+    func testOneLookAtATime() {
+        armForTick()
+        manager.tick()
+
+        manager.tick()
+
+        XCTAssertEqual(checks, 1)
+    }
+
+    func testPersonBackDuringTheLookStartsNothing() {
+        armForTick()
+        manager.tick()
+        manager.idleSecondsProvider = { 2 }
+
+        answer(.asleep)
+
+        XCTAssertTrue(startedHours.isEmpty)
     }
 }

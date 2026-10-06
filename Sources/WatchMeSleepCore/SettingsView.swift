@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import AVFoundation
 
 /// Requests the settings window from anywhere in the UI.
 public func openAppSettings() {
@@ -12,6 +13,7 @@ public struct SettingsView: View {
     @StateObject private var autoActivation = AutoActivationManager.shared
     @StateObject private var launchManager = LaunchAtLoginManager.shared
     @ObservedObject private var updater = Updater.shared
+    @State private var cameraAccess = AVCaptureDevice.authorizationStatus(for: .video)
 
     private let startHourOptions = [20, 21, 22, 23, 0, 1, 2]
     private let endHourOptions = [5, 6, 7, 8, 9, 10]
@@ -27,6 +29,11 @@ public struct SettingsView: View {
             updatesSection
         }
         .formStyle(.grouped)
+        // Access can change in Camera mode or System Settings while this window
+        // stays alive between openings; both bring the app back to the front.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            refreshCameraAccess()
+        }
         .frame(width: 500)
         .fixedSize(horizontal: false, vertical: true)
     }
@@ -50,13 +57,57 @@ public struct SettingsView: View {
                 Picker("Timer length", selection: $autoActivation.timerHours) {
                     ForEach(durationOptions, id: \.self) { Text(durationLabel($0)).tag($0) }
                 }
+                // On only where the check can really run, so the switch never
+                // claims a look the missing camera access would skip.
+                Toggle("Check with the camera first", isOn: Binding(
+                    get: { autoActivation.checksWithCamera && cameraAccess == .authorized },
+                    set: { setChecksWithCamera($0) }
+                ))
             }
         } header: {
             Text("Auto-start when idle")
         } footer: {
-            Text("Automatically start a sleep timer when your Mac sits idle late at night, "
-                 + "so it powers down even if you forget to start one yourself.")
+            Text(autoStartFooter)
         }
+    }
+
+    private var autoStartFooter: String {
+        let base = "Automatically start a sleep timer when your Mac sits idle late at night, "
+            + "so it powers down even if you forget to start one yourself."
+        guard autoActivation.isEnabled, autoActivation.checksWithCamera else { return base }
+        if cameraAccess == .denied || cameraAccess == .restricted {
+            return base + " Camera access is off in System Settings, so the timer starts without a look."
+        }
+        guard cameraAccess == .authorized else { return base }
+        let timerMinutes = Int(AutoActivationManager.confirmedTimerHours * 60)
+        let recheckMinutes = Int(AutoActivationManager.recheckInterval / 60)
+        return base + " The camera first takes a short look: if your eyes are closed or nobody is there, "
+            + "a \(timerMinutes)-minute timer starts; if you are awake, it looks again in \(recheckMinutes) minutes. "
+            + "Nothing is recorded."
+    }
+
+    /// Asks for camera access here, while the person is choosing it, so the
+    /// nightly check never has to prompt.
+    private func setChecksWithCamera(_ enabled: Bool) {
+        autoActivation.checksWithCamera = enabled
+        guard enabled else { return }
+        switch cameraAccess {
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { _ in
+                DispatchQueue.main.async { refreshCameraAccess() }
+            }
+        case .denied, .restricted:
+            // The app cannot ask again; the person grants it in System Settings.
+            if let url = SleepDetectionManager.cameraPrivacySettingsURL {
+                NSWorkspace.shared.open(url)
+            }
+        default:
+            break
+        }
+    }
+
+    private func refreshCameraAccess() {
+        cameraAccess = AVCaptureDevice.authorizationStatus(for: .video)
     }
 
     // MARK: - Startup

@@ -16,11 +16,15 @@ The main dropdown is a custom arrowless borderless `NSPanel` (`MenuBarPanel.swif
 
 Animating the height change is an open HIG gap: with `sizingOptions` left on, Auto Layout snaps the window before any `setFrame(animate:)`; turning it off and driving the height from `onGeometryChange` crashed in the window's layout display cycle (2026-09-23).
 
-`configure()` sets `isFloatingPanel` before `level`: the setter resets the level to `.floating`, which silently dropped the panel from `.statusBar` (25) to 3, under any other floating window.
+`NSPanel.configureAsStatusPanel()`, shared by the dropdown and the sleep warning, sets `isFloatingPanel` before `level`: the setter resets the level to `.floating`, which silently dropped the panel from `.statusBar` (25) to 3, under any other floating window.
 
 `capture-screenshots.sh` regenerates the README screenshots. A single-window capture renders Liquid Glass without what sits behind it, as flat gray, so the script puts an opaque backdrop a shade darker than the panel under each window and captures the screen region with a 20 pt margin, shadow included. The panel hangs 1 pt below the menu bar, so the top margin is filled in the backdrop color instead of captured. The backdrop must be opaque: `underPageBackgroundColor` is translucent and let text from the windows behind it into the images. Each region is checked before and after the capture and the image kept only if nothing but the app and the backdrop is in it: a window raised meanwhile would put private content into a public image. It drives the app only through Accessibility identifiers (`startTimer`, `stopTimer`, `openSettings`, `cameraPreview`), never synthetic clicks.
 
 The panel follows the system light/dark appearance. On macOS 26+ the system status-bar menus take the menu bar's appearance instead, so they can be dark while the system is light; do not copy that onto the panel (decided 2026-09-23).
+
+## Sleep warning panel
+
+`SleepWarningController` (`SleepWarningPanel.swift`) shows the timer's final minute in the top-right corner. It reuses `PanelHostController`, so it carries the same backing and rounding as the dropdown. It is a panel, not a notification, because the Sleep focus and full-screen video hide notifications. It never becomes key (`becomesKeyOnlyIfNeeded`), so a video player keeps its keyboard while the buttons still take a first click; its prominent button therefore draws in the inactive gray, like a system banner's. A single-window capture of it renders the glass flat gray, as above.
 
 ## SDK version stamp
 

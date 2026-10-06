@@ -26,6 +26,9 @@ struct WatchMeSleepApp: App {
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var panel: MenuBarPanelController!
+    /// Built for the final minute only: hidden, its view would still re-render
+    /// on every tick of a timer that may run for hours.
+    private var sleepWarning: SleepWarningController?
     private var timerManager = TimerManager.shared
     private var sleepManager = SleepDetectionManager.shared
     private var autoActivation = AutoActivationManager.shared
@@ -83,6 +86,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             queue: .main
         ) { [weak self] _ in
             self?.updateStatusItem()
+            self?.updateSleepWarning()
         }
 
         // Update icon when camera mode changes
@@ -110,6 +114,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Sparkle's daily checks (Updater).
         Updater.shared.start()
+    }
+
+    private func updateSleepWarning() {
+        if timerManager.isInFinalPhase {
+            if sleepWarning == nil { sleepWarning = SleepWarningController() }
+            sleepWarning?.show()
+        } else if let warning = sleepWarning {
+            warning.close()
+            sleepWarning = nil
+        }
+    }
+
+    /// Quitting drops the timer; put back any volume its final minute lowered.
+    func applicationWillTerminate(_ notification: Notification) {
+        timerManager.stopTimer()
     }
 
     /// The status item can be hidden by the system or by the person, so relaunching

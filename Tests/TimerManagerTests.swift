@@ -1,9 +1,31 @@
 import XCTest
 @testable import WatchMeSleepCore
 
+/// Records what the final phase asks of the volume instead of touching a device.
+/// Like `SystemVolumeFader`, a restore with no fade before it changes nothing,
+/// so only effective restores are counted.
+final class FakeVolume: VolumeControl {
+    var fades: [Double] = []
+    var restores = 0
+    private var isFaded = false
+
+    func fade(to fraction: Double) {
+        fades.append(fraction)
+        isFaded = true
+    }
+
+    func restore() {
+        guard isFaded else { return }
+        isFaded = false
+        restores += 1
+    }
+}
+
 final class TimerManagerTests: XCTestCase {
     var timerManager: TimerManager!
     var didTriggerSleep = false
+    var fakeVolume: FakeVolume!
+    var idleSeconds: TimeInterval = .infinity
 
     override func setUp() {
         super.setUp()
@@ -14,12 +36,172 @@ final class TimerManagerTests: XCTestCase {
         timerManager.sleepHandler = { [weak self] in self?.didTriggerSleep = true }
         // Reset the clock seam so a frozen clock never leaks between tests (shared singleton).
         timerManager.now = Date.init
+        // Nobody at the keyboard unless a test says so, and no real volume changes.
+        idleSeconds = .infinity
+        timerManager.idleSecondsProvider = { [weak self] in self?.idleSeconds ?? .infinity }
+        fakeVolume = FakeVolume()
+        timerManager.volume = fakeVolume
     }
 
     override func tearDown() {
         timerManager.stopTimer()
         timerManager.now = Date.init
         super.tearDown()
+    }
+
+    /// Starts a 15-minute timer on a frozen clock and returns a way to move it.
+    private func startFrozenTimer() -> (TimeInterval) -> Void {
+        var fakeNow = Date()
+        timerManager.now = { fakeNow }
+        timerManager.startTimer(hours: 0.25)
+        return { seconds in
+            fakeNow = fakeNow.addingTimeInterval(seconds)
+            self.timerManager.tick()
+        }
+    }
+
+    // MARK: - Final Phase Tests
+
+    func testNoFinalPhaseBeforeLastMinute() {
+        let advance = startFrozenTimer()
+
+        advance(15 * 60 - 61)
+
+        XCTAssertFalse(timerManager.isInFinalPhase)
+        XCTAssertTrue(fakeVolume.fades.isEmpty, "Volume must not fade before the final minute")
+    }
+
+    func testFinalPhaseFadesVolumeWithRemainingTime() {
+        let advance = startFrozenTimer()
+
+        advance(15 * 60 - 60)
+        XCTAssertTrue(timerManager.isInFinalPhase)
+        advance(30)
+
+        XCTAssertEqual(fakeVolume.fades.count, 2)
+        XCTAssertEqual(fakeVolume.fades[0], 1.0, accuracy: 0.001)
+        XCTAssertEqual(fakeVolume.fades[1], 0.5, accuracy: 0.001)
+    }
+
+    func testIdleMacSleepsAtZeroWithVolumeStillDown() {
+        let advance = startFrozenTimer()
+        advance(15 * 60 - 60)
+
+        advance(60)
+
+        XCTAssertTrue(didTriggerSleep)
+        XCTAssertFalse(timerManager.isTimerActive)
+        XCTAssertFalse(timerManager.isInFinalPhase)
+        XCTAssertEqual(fakeVolume.restores, 0, "Volume comes back on wake, not just before sleep")
+    }
+
+    func testActivityDuringFinalPhasePostponesInsteadOfSleeping() {
+        let advance = startFrozenTimer()
+        advance(15 * 60 - 60)
+        advance(20)
+        // Someone touched the mouse 5 seconds ago, inside the final phase.
+        idleSeconds = 5
+        advance(1)
+        XCTAssertTrue(timerManager.isUserActive)
+        XCTAssertEqual(fakeVolume.restores, 1, "Volume comes back as soon as someone is active")
+        let fadesBeforeActivity = fakeVolume.fades.count
+
+        advance(39)
+
+        XCTAssertFalse(didTriggerSleep, "A Mac in use must not be put to sleep")
+        XCTAssertTrue(timerManager.isTimerActive)
+        XCTAssertFalse(timerManager.isInFinalPhase)
+        XCTAssertFalse(timerManager.isUserActive)
+        XCTAssertEqual(timerManager.remainingTime, TimeInterval(TimerManager.postponeMinutes * 60), accuracy: 0.001)
+        XCTAssertEqual(fakeVolume.fades.count, fadesBeforeActivity, "No fading once someone is active")
+    }
+
+    func testActivityBeforeFinalPhaseDoesNotCount() {
+        let advance = startFrozenTimer()
+        advance(15 * 60 - 60)
+        // Ten seconds into the warning, the last input was 30 seconds ago:
+        // twenty seconds before the warning appeared.
+        idleSeconds = 30
+        advance(10)
+
+        XCTAssertFalse(timerManager.isUserActive)
+        XCTAssertEqual(fakeVolume.restores, 0, "The fade goes on for input older than the warning")
+
+        idleSeconds = 80
+        advance(50)
+        XCTAssertTrue(didTriggerSleep)
+    }
+
+    func testAddingTimeDuringFinalPhaseEndsItAndRestoresVolume() {
+        let advance = startFrozenTimer()
+        advance(15 * 60 - 30)
+        XCTAssertTrue(timerManager.isInFinalPhase)
+
+        timerManager.addTime(minutes: TimerManager.postponeMinutes)
+
+        XCTAssertFalse(timerManager.isInFinalPhase)
+        XCTAssertEqual(fakeVolume.restores, 1)
+    }
+
+    func testStopTimerRestoresVolume() {
+        let advance = startFrozenTimer()
+        advance(15 * 60 - 30)
+
+        timerManager.stopTimer()
+
+        XCTAssertFalse(timerManager.isInFinalPhase)
+        XCTAssertEqual(fakeVolume.restores, 1)
+    }
+
+    func testSleepNowDropsTheTimer() {
+        timerManager.startTimer(hours: 1.0)
+
+        timerManager.sleepNow()
+
+        XCTAssertTrue(didTriggerSleep)
+        XCTAssertFalse(timerManager.isTimerActive, "A timer left running would sleep the Mac again on wake")
+    }
+
+    // MARK: - Wake Tests
+
+    func testATimerThatRanOutDuringSleepStopsOnTheNextTick() {
+        let advance = startFrozenTimer()
+        advance(15 * 60 - 30)
+        // Asleep through zero; the lid opening counts as fresh input.
+        idleSeconds = 1
+
+        advance(2 * 3600)
+
+        XCTAssertFalse(timerManager.isTimerActive, "Not postponed into the morning")
+        XCTAssertFalse(didTriggerSleep, "Waking must not put the Mac straight back to sleep")
+        XCTAssertEqual(fakeVolume.restores, 1)
+    }
+
+    func testALateTickStillSleepsTheMac() {
+        let advance = startFrozenTimer()
+        advance(15 * 60 - 30)
+
+        advance(30 + TimerManager.overdueAfter - 1)
+
+        XCTAssertTrue(didTriggerSleep, "A tick delayed by App Nap is not a sleep")
+    }
+
+    func testWakeRestoresVolume() {
+        let advance = startFrozenTimer()
+        advance(15 * 60 - 30)
+
+        timerManager.handleWake()
+
+        XCTAssertEqual(fakeVolume.restores, 1)
+    }
+
+    func testWakeKeepsATimerStillRunning() {
+        let advance = startFrozenTimer()
+        advance(60)
+
+        timerManager.handleWake()
+
+        XCTAssertTrue(timerManager.isTimerActive)
     }
     
     // MARK: - Start Timer Tests

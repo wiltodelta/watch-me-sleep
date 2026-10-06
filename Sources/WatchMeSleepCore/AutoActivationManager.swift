@@ -19,6 +19,15 @@ public final class AutoActivationManager: ObservableObject {
     /// overnight until this morning hour.
     @Published public var windowEndHour: Int = 8 { didSet { persist() } }
 
+    /// Look with the camera before arming, when camera access was already given.
+    @Published public var checksWithCamera: Bool = true { didSet { persist() } }
+
+    /// Timer length once the camera has seen closed eyes or nobody: the person
+    /// is already asleep or gone, so the configured length would only delay it.
+    public static let confirmedTimerHours = 0.25
+    /// Wait before looking again after the camera saw someone awake.
+    static let recheckInterval: TimeInterval = 10 * 60
+
     // MARK: - Test seams
 
     /// Source of the current system idle time, in seconds. Overridable in tests.
@@ -29,6 +38,12 @@ public final class AutoActivationManager: ObservableObject {
     var isCameraModeEnabled: () -> Bool = { SleepDetectionManager.shared.isCameraModeEnabled }
     /// Action that arms the timer. Overridable in tests.
     var startTimer: (Double) -> Void = { TimerManager.shared.startTimer(hours: $0) }
+    /// The camera look. Overridable in tests.
+    var checkPresence: (@escaping (PresenceCheck.Verdict) -> Void) -> Void = {
+        SleepDetectionManager.shared.checkPresence(completion: $0)
+    }
+    /// Current time. Overridable in tests.
+    var now: () -> Date = Date.init
     /// UserDefaults store. Overridable in tests to avoid polluting standard defaults.
     var defaults: UserDefaults = .standard
 
@@ -40,11 +55,15 @@ public final class AutoActivationManager: ObservableObject {
         static let untilHour = "AutoActivation.untilHour"
         static let idleMinutes = "AutoActivation.idleMinutes"
         static let timerHours = "AutoActivation.timerHours"
+        static let checksWithCamera = "AutoActivation.checksWithCamera"
     }
 
     private var pollTimer: Timer?
     private let pollInterval: TimeInterval = 30
     private var isLoaded = false
+    // Camera-look state; internal so tests on the shared instance can reset it.
+    var isChecking = false
+    var nextCheck: Date = .distantPast
 
     private init() {
         load()
@@ -72,8 +91,32 @@ public final class AutoActivationManager: ObservableObject {
         }
     }
 
-    private func tick() {
-        if shouldActivate(now: Date(), idleSeconds: idleSecondsProvider()) {
+    func tick() {
+        guard shouldActivate(now: now(), idleSeconds: idleSecondsProvider()) else { return }
+        guard checksWithCamera else {
+            startTimer(timerHours)
+            return
+        }
+        guard !isChecking, now() >= nextCheck else { return }
+
+        isChecking = true
+        checkPresence { [weak self] verdict in
+            self?.handle(verdict)
+        }
+    }
+
+    private func handle(_ verdict: PresenceCheck.Verdict) {
+        isChecking = false
+        // The person may have come back, or started a timer, while the camera looked.
+        guard shouldActivate(now: now(), idleSeconds: idleSecondsProvider()) else { return }
+
+        switch verdict {
+        case .asleep, .absent:
+            startTimer(min(Self.confirmedTimerHours, timerHours))
+        case .awake:
+            nextCheck = now().addingTimeInterval(Self.recheckInterval)
+        case .unavailable:
+            // No camera to ask: behave as without the check.
             startTimer(timerHours)
         }
     }
@@ -144,6 +187,9 @@ public final class AutoActivationManager: ObservableObject {
         if defaults.object(forKey: Key.timerHours) != nil {
             timerHours = defaults.double(forKey: Key.timerHours)
         }
+        if defaults.object(forKey: Key.checksWithCamera) != nil {
+            checksWithCamera = defaults.bool(forKey: Key.checksWithCamera)
+        }
     }
 
     private func persist() {
@@ -153,6 +199,7 @@ public final class AutoActivationManager: ObservableObject {
         defaults.set(windowEndHour, forKey: Key.untilHour)
         defaults.set(idleMinutes, forKey: Key.idleMinutes)
         defaults.set(timerHours, forKey: Key.timerHours)
+        defaults.set(checksWithCamera, forKey: Key.checksWithCamera)
     }
 
     private func settingsChanged() {

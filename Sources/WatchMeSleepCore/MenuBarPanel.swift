@@ -9,6 +9,21 @@ public final class MenuBarPanelWindow: NSPanel {
     public override var canBecomeMain: Bool { false }
 }
 
+extension NSPanel {
+    /// The setup the dropdown and the sleep warning share: a clear borderless
+    /// panel above other apps' windows, on every Space and over full-screen apps.
+    func configureAsStatusPanel() {
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = true
+        // `isFloatingPanel` resets the level to `.floating`, so it goes first.
+        isFloatingPanel = true
+        level = .statusBar
+        hidesOnDeactivate = false
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+    }
+}
+
 /// Hosts the SwiftUI content over an AppKit rounded backing: Liquid Glass on
 /// macOS 26+, the standard popover material before it.
 ///
@@ -19,7 +34,7 @@ public final class MenuBarPanelWindow: NSPanel {
 /// (its `preferredContentSize` undercounts tall content and clipped the
 /// footer), so the panel resizes to fit as the content changes between timer
 /// and camera modes.
-private final class PanelHostController: NSViewController {
+final class PanelHostController: NSViewController {
     private let host: NSHostingController<AnyView>
     private let fixedWidth: CGFloat
     private let cornerRadius: CGFloat = 12
@@ -134,15 +149,8 @@ public final class MenuBarPanelController {
     }
 
     private func configure<Content: View>(rootView: Content, size: NSSize) {
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        // `isFloatingPanel` resets the level to `.floating`, so it goes first.
-        panel.isFloatingPanel = true
-        panel.level = .statusBar
-        panel.hidesOnDeactivate = false
+        panel.configureAsStatusPanel()
         panel.animationBehavior = .none
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         // A hosting controller (not a bare hosting view) sizes the window to fit
         // the SwiftUI content and keeps it in sync as the content changes between

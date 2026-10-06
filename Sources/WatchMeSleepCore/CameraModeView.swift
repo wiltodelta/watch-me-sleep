@@ -104,7 +104,7 @@ struct CameraModeView: View {
             if !sleepManager.isCameraAuthorized {
                 // Opens another app, so the title ends with an ellipsis (HIG).
                 Button("Open System Settings…") {
-                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Camera") {
+                    if let url = SleepDetectionManager.cameraPrivacySettingsURL {
                         openURL(url)
                     }
                 }
