@@ -46,6 +46,7 @@ final class TimerManagerTests: XCTestCase {
         timerManager.idleSecondsProvider = { [weak self] in self?.idleSeconds ?? .infinity }
         fakeVolume = FakeVolume()
         timerManager.volume = fakeVolume
+        timerManager.workHolders = { [] }
     }
 
     override func tearDown() {
@@ -189,6 +190,30 @@ final class TimerManagerTests: XCTestCase {
         asked[0]()
 
         XCTAssertFalse(timerManager.isUserActive)
+    }
+
+    func testWorkHoldingTheMacTurnsTheEndIntoDisplayOff() {
+        timerManager.workHolders = { ["caffeinate"] }
+        timerManager.startTimer(hours: 1)
+        XCTAssertTrue(timerManager.endsWithDisplayOff, "The panel and warning must not promise sleep")
+
+        timerManager.workHolders = { [] }
+        timerManager.startTimer(hours: 1)
+        XCTAssertFalse(timerManager.endsWithDisplayOff)
+    }
+
+    func testTheEndActionFollowsWorkWhileTheTimerRuns() {
+        var fakeNow = Date()
+        timerManager.now = { fakeNow }
+        timerManager.startTimer(hours: 1)
+        timerManager.workHolders = { ["Claude"] }
+
+        fakeNow = fakeNow.addingTimeInterval(14)
+        timerManager.tick()
+        XCTAssertFalse(timerManager.endsWithDisplayOff, "Checked at most every 15 seconds")
+        fakeNow = fakeNow.addingTimeInterval(1)
+        timerManager.tick()
+        XCTAssertTrue(timerManager.endsWithDisplayOff)
     }
 
     func testSomeoneThereOutsideTheFinalMinuteIsIgnored() {

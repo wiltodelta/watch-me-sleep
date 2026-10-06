@@ -6,52 +6,46 @@ struct NightWatchStatusView: View {
     @ObservedObject private var supervisor = SleepSupervisor.shared
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .center, spacing: 10) {
             // Decorative: the title already says it.
             Image(systemName: icon)
                 .font(.title3)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.panelSecondary)
                 .frame(width: 22)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(supervisor.statusTitle)
                     .font(.callout.weight(.medium))
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.panelSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("nightWatchStatus")
             Spacer(minLength: 0)
+            // The way out of "off" is right here, not a trip to Settings (UX-12).
+            if supervisor.status == .off {
+                Button("Turn On") { supervisor.isEnabled = true }
+                    .controlSize(.regular)
+                    .accessibilityIdentifier("turnOnNightWatch")
+            }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("nightWatchStatus")
     }
 
     private var icon: String {
         switch supervisor.status {
-        case .off: return "moon"
+        case .off, .noBedtime: return "moon"
         case .looking: return "eye"
         case .watching(_, let mediaPlaying, _): return mediaPlaying ? "play.tv" : "moon.stars"
         default: return "moon.stars"
         }
     }
 
-    private var title: String {
-        switch supervisor.status {
-        case .off: return "Night watch is off"
-        case .outsideHours: return "Night watch starts at \(supervisor.bedtimeStartText)"
-        case .inUse: return "Night watch is on"
-        case .timerRunning: return "Sleep timer running"
-        case .watching(_, let mediaPlaying, _): return mediaPlaying ? "Something is playing" : "Your Mac is quiet"
-        case .looking: return "Looking with the camera"
-        case .done: return "Display off, work still running"
-        }
-    }
-
     private var detail: String {
         switch supervisor.status {
         case .off:
-            return "Turn it on in Settings to sleep the Mac once you fall asleep."
+            return "It sleeps the Mac once you fall asleep."
         case .outsideHours:
             return "Until then, set a timer below."
         case .inUse:
@@ -59,13 +53,18 @@ struct NightWatchStatusView: View {
         case .timerRunning:
             return "A minute before the end you can keep the Mac awake."
         case let .watching(idleMinutes, _, nextLook):
-            let idle = "No input for \(idleMinutes) min."
+            // Never "0 min" (UX-07): under a minute says so.
+            let idle = idleMinutes < 1
+                ? "No input for less than a minute."
+                : "No input for \(DurationFormat.words(minutes: idleMinutes))."
             guard let nextLook else { return idle }
             return idle + " The camera looks at \(shortTimeFormatter.string(from: nextLook))."
         case .looking:
             return "Checking whether you are still watching. Nothing is recorded."
         case .done:
             return "The Mac sleeps by itself once the work finishes."
+        case .noBedtime:
+            return "It starts and ends at the same time. Change it in Settings."
         }
     }
 }
@@ -81,19 +80,21 @@ struct CameraPreviewRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
             thumbnail
+            // The icon sits right next to its title, and the hint starts at
+            // the same left edge as the icon. A `Label` here took the form's
+            // label style and pushed the title a column away from its icon.
             VStack(alignment: .leading, spacing: 3) {
-                // Color on the symbol only: green text on a light form fails
-                // contrast, and the words carry the state anyway.
-                Label {
-                    Text(statusTitle)
-                } icon: {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    // Color on the symbol only: green text on a light form
+                    // fails contrast, and the words carry the state anyway.
                     Image(systemName: statusIcon)
-                        .foregroundStyle(camera.isFaceDetected ? Color.green : .secondary)
+                        .foregroundStyle(camera.isFaceDetected ? Color.green : Color.panelSecondary)
+                    Text(statusTitle)
                 }
                 .font(.callout.weight(.medium))
                 Text("Sit where you usually watch from. The light of the screen is enough.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.panelSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .combine)

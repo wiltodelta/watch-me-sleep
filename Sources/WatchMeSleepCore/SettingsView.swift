@@ -82,22 +82,22 @@ public struct SettingsView: View {
     }
 
     private var nightWatchFooter: String {
-        let base = bedtimeSummary + " When you stop using your Mac but a film or music keeps it awake, "
+        let behavior = "When you stop using your Mac but a film or music keeps it awake, "
             + "it sleeps the Mac after a minute's warning. With work running, only the display turns off."
-        guard supervisor.isEnabled, supervisor.usesCamera else { return base }
+        // Off: what turning it on would do, not the details of hidden settings (UX-06).
+        guard supervisor.isEnabled else { return behavior }
+        // A bedtime that never comes is the one thing to say (UX-05).
+        guard supervisor.bedtimeMinutes > 0 else {
+            return "Bedtime starts and ends at the same time, so the night watch never runs. "
+                + "Choose a different end time."
+        }
+        let base = "Every day, \(DurationFormat.words(minutes: supervisor.bedtimeMinutes)). " + behavior
+        guard supervisor.usesCamera else { return base }
         if cameraAccess == .denied || cameraAccess == .restricted {
             return base + " Camera access is off in System Settings, so it decides without looking."
         }
         guard cameraOn else { return base }
         return base + " When unsure, it looks with the camera for closed eyes. Nothing is recorded."
-    }
-
-    /// "Every day, 8 hr, 30 min." or a note that equal times make no bedtime.
-    private var bedtimeSummary: String {
-        guard supervisor.bedtimeMinutes > 0 else {
-            return "Bedtime starts and ends at the same time, so the night watch never runs."
-        }
-        return "Every day, \(BedtimeFormat.duration(supervisor.bedtimeMinutes))."
     }
 
     /// Asks for camera access here, while the person is choosing it, so the
@@ -167,6 +167,8 @@ public struct SettingsView: View {
             set: { minutes.wrappedValue = BedtimeFormat.minutes(of: $0) }
         ), displayedComponents: .hourAndMinute)
         .labelsHidden()
-        .datePickerStyle(.field)
+        // The system's own time field with arrows sizes itself to the text; the
+        // bare `.field` style cut "10:00 PM" off at its right edge.
+        .datePickerStyle(.stepperField)
     }
 }

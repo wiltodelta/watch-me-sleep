@@ -42,6 +42,7 @@ struct CommonSettingsView: View {
                 openAppSettings()
             } label: {
                 Label("Settings…", systemImage: "gearshape")
+                    .footerTarget()
             }
             .accessibilityIdentifier("openSettings")
 
@@ -51,18 +52,21 @@ struct CommonSettingsView: View {
                     updater.checkForUpdates()
                 } label: {
                     Label("Install \(version)…", systemImage: "arrow.down.circle")
+                        .footerTarget()
                 }
                 .help("Install version \(version)")
             }
 
             Spacer()
 
-            Button("Quit") {
+            Button {
                 NSApplication.shared.terminate(nil)
+            } label: {
+                Text("Quit").footerTarget()
             }
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Color.panelSecondary)
         .font(.callout)
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
@@ -72,29 +76,28 @@ struct CommonSettingsView: View {
 struct InactiveTimerView: View {
     @Binding var selectedHours: Double
 
-    private let presetHours: [Double] = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6]
     private let range: ClosedRange<Double> = 0.25...12
 
     var body: some View {
         VStack(spacing: 0) {
             // Time display
             VStack(spacing: 12) {
-                Text(formatHours(selectedHours))
+                Text(DurationFormat.compact(hours: selectedHours))
                     .font(.system(size: 48, weight: .regular, design: .rounded))
                     .foregroundStyle(.primary)
 
                 durationSlider
                     .labelsHidden()
-                    .accessibilityValue(spokenDuration(hours: selectedHours))
+                    .accessibilityValue(DurationFormat.words(hours: selectedHours))
                     .controlSize(.small)
 
                 HStack {
-                    Text("15 min")
+                    Text(DurationFormat.compact(hours: range.lowerBound))
                     Spacer()
-                    Text("12 hours")
+                    Text(DurationFormat.compact(hours: range.upperBound))
                 }
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.panelSecondary)
                 .accessibilityHidden(true)
             }
             .padding(20)
@@ -105,12 +108,12 @@ struct InactiveTimerView: View {
             // Presets
             Grid(horizontalSpacing: 12, verticalSpacing: 12) {
                 GridRow {
-                    ForEach(presetHours.prefix(4), id: \.self) { hours in
+                    ForEach(TimerManager.presetHours.prefix(4), id: \.self) { hours in
                         PresetButton(hours: hours, selectedHours: $selectedHours)
                     }
                 }
                 GridRow {
-                    ForEach(presetHours.suffix(4), id: \.self) { hours in
+                    ForEach(TimerManager.presetHours.suffix(4), id: \.self) { hours in
                         PresetButton(hours: hours, selectedHours: $selectedHours)
                     }
                 }
@@ -157,22 +160,6 @@ struct InactiveTimerView: View {
         }
     }
 
-    private func formatHours(_ hours: Double) -> String {
-        if hours < 1 {
-            let minutes = Int(hours * 60)
-            return "\(minutes) min"
-        } else if hours == floor(hours) {
-            let h = Int(hours)
-            return h == 1 ? "1 hour" : "\(h) hours"
-        } else {
-            let h = Int(hours)
-            let m = Int((hours - Double(h)) * 60)
-            if m == 0 {
-                return h == 1 ? "1 hour" : "\(h) hours"
-            }
-            return "\(h)h \(m)m"
-        }
-    }
 }
 
 struct PresetButton: View {
@@ -187,26 +174,16 @@ struct PresetButton: View {
         Button {
             selectedHours = hours
         } label: {
-            Text(formatHoursShort(hours))
+            Text(DurationFormat.compact(hours: hours))
                 .frame(maxWidth: .infinity)
         }
         .modifier(PresetStyle(isSelected: isSelected))
         .controlSize(.regular)
-        .accessibilityLabel(spokenDuration(hours: hours))
+        .durationAccessibility(visible: DurationFormat.compact(hours: hours),
+                               spoken: DurationFormat.words(hours: hours))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    private func formatHoursShort(_ hours: Double) -> String {
-        if hours < 1 {
-            return "\(Int(hours * 60))m"
-        } else if hours == floor(hours) {
-            return "\(Int(hours))h"
-        } else {
-            let h = Int(hours)
-            let m = Int((hours - Double(h)) * 60)
-            return "\(h)h \(m)m"
-        }
-    }
 }
 
 private struct PresetStyle: ViewModifier {
@@ -243,22 +220,25 @@ struct ActiveTimerView: View {
                         .rotationEffect(.degrees(-90))
 
                     VStack(spacing: 2) {
-                        Text(formatTime(timerManager.remainingTime))
+                        Text(DurationFormat.countdown(timerManager.remainingTime))
                             .font(.system(.largeTitle, design: .rounded).weight(.medium))
                             .monospacedDigit()
                         Text("remaining")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.panelSecondary)
                     }
                 }
                 .frame(width: 140, height: 140)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Time remaining")
-                .accessibilityValue(formatTime(timerManager.remainingTime))
+                .accessibilityValue(DurationFormat.countdown(timerManager.remainingTime))
 
-                Text("Sleep at \(formatTargetTime(timerManager.remainingTime))")
+                // What zero really does (UX-04): with work holding the Mac,
+                // only the display goes off.
+                Text("\(timerManager.endsWithDisplayOff ? "Display off" : "Sleep") at "
+                     + formatTargetTime(timerManager.remainingTime))
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.panelSecondary)
             }
             .padding(20)
             .padding(.top, 12)
@@ -268,15 +248,16 @@ struct ActiveTimerView: View {
             // Add time buttons
             HStack(spacing: 12) {
                 ForEach([5, 15, 30, 60], id: \.self) { minutes in
+                    let label = "+" + DurationFormat.compact(minutes: minutes)
                     Button {
                         timerManager.addTime(minutes: minutes)
                     } label: {
-                        Text("+\(minutes)m")
+                        Text(label)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.regular)
-                    .accessibilityLabel("Add \(minutes) minutes")
+                    .durationAccessibility(visible: label, spoken: "Add " + DurationFormat.words(minutes: minutes))
                 }
             }
             .padding(.horizontal, 20)
@@ -285,23 +266,17 @@ struct ActiveTimerView: View {
             Divider()
 
             // Stopping a timer destroys no data, so it takes no destructive red (HIG).
+            // No Escape shortcut (UX-03): Escape closes the panel, and a timer
+            // that would let the Mac sleep tonight is not cancelled by a reflex.
             Button("Stop Timer") {
                 timerManager.stopTimer()
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
-            .keyboardShortcut(.cancelAction)
             .accessibilityIdentifier("stopTimer")
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
         }
-    }
-
-    private func formatTime(_ time: TimeInterval) -> String {
-        let hours = Int(time) / 3600
-        let minutes = Int(time) % 3600 / 60
-        let seconds = Int(time) % 60
-        return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
 
     private func formatTargetTime(_ remainingTime: TimeInterval) -> String {
@@ -317,14 +292,13 @@ let shortTimeFormatter: DateFormatter = {
     return formatter
 }()
 
-private let spokenDurationFormatter: DateComponentsFormatter = {
-    let formatter = DateComponentsFormatter()
-    formatter.allowedUnits = [.hour, .minute]
-    formatter.unitsStyle = .full
-    return formatter
-}()
-
-/// A duration as VoiceOver should read it, e.g. "1 hour, 30 minutes".
-func spokenDuration(hours: Double) -> String {
-    spokenDurationFormatter.string(from: hours * 3600) ?? ""
+private extension View {
+    /// A footer action at least 28 pt tall, the default control height on macOS;
+    /// the bare label was 15 pt, under the 20 pt minimum (UX-02).
+    func footerTarget() -> some View {
+        padding(.vertical, 6)
+            .padding(.horizontal, 4)
+            .frame(minHeight: 28)
+            .contentShape(Rectangle())
+    }
 }

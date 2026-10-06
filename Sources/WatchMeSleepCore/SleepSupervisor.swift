@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import os
 
@@ -75,6 +76,8 @@ public enum NightWatchStatus: Equatable {
     /// It already acted in this idle stretch (the display went off for work
     /// that holds the Mac awake); nothing more until someone is back.
     case done
+    /// Bedtime starts and ends at the same time, so it never comes.
+    case noBedtime
 }
 
 /// The one automatic mode: during bedtime hours it watches what keeps the Mac
@@ -129,6 +132,7 @@ public final class SleepSupervisor: ObservableObject {
     static let inUseIdle: TimeInterval = 30
     private let pollInterval: TimeInterval = 10
     private var pollTimer: Timer?
+    private var timerObservation: AnyCancellable?
     private var isLoaded = false
     private let log = Logger.app("nightwatch")
 
@@ -162,6 +166,7 @@ public final class SleepSupervisor: ObservableObject {
             status = .off
             return
         }
+        observeTimer()
         let timer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
             self?.tick()
         }
@@ -169,6 +174,24 @@ public final class SleepSupervisor: ObservableObject {
         timer.tolerance = 2
         pollTimer = timer
         tick()
+    }
+
+    /// A timer started or stopped by hand changes the status at once, not at
+    /// the next poll. Only the status: acting here, as a full tick would, could
+    /// start a look or a timer in the instant a timer ends and sleeps the Mac.
+    func observeTimer() {
+        timerObservation = timer.$isTimerActive.removeDuplicates().dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.refreshStatus() }
+    }
+
+    private func refreshStatus() {
+        let idle = idleSecondsProvider()
+        if let gate = gate(idle: idle) {
+            setStatus(gate)
+        } else {
+            act(idle: idle, statusOnly: true)
+        }
     }
 
     // MARK: - Tick
@@ -189,6 +212,7 @@ public final class SleepSupervisor: ObservableObject {
         }
         guard isEnabled else { return .off }
         if timer.isTimerActive { return .timerRunning }
+        if bedtimeMinutes == 0 { return .noBedtime }
         guard isWithinWindow(now()) else { return .outsideHours }
         if inUse { return .inUse }
         if stretch.acted { return .done }
@@ -196,7 +220,9 @@ public final class SleepSupervisor: ObservableObject {
         return nil
     }
 
-    private func act(idle: TimeInterval) {
+    /// - Parameter statusOnly: say what the night watch sees without doing
+    ///   anything about it (no look, no timer) until the next poll.
+    private func act(idle: TimeInterval, statusOnly: Bool = false) {
         let holders = wakeHolders()
         let input = NightWatchPolicy.Input(
             idle: idle,
@@ -206,14 +232,19 @@ public final class SleepSupervisor: ObservableObject {
             lookDue: now() >= stretch.nextLook
         )
 
-        switch NightWatchPolicy.decide(input) {
-        case .wait:
+        let decision = NightWatchPolicy.decide(input)
+        if decision == .wait || statusOnly {
             // To the minute, as shown: a status that changes every tick would
             // re-render the panel every 10 seconds for nothing.
             let next = input.cameraDecides
                 ? Self.minuteUp(max(stretch.nextLook, now().addingTimeInterval(NightWatchPolicy.firstLookIdle - idle)))
                 : nil
             setStatus(.watching(idleMinutes: Int(idle / 60), mediaPlaying: holders.mediaPlaying, nextLook: next))
+            return
+        }
+        switch decision {
+        case .wait:
+            break
         case .look:
             look()
         case .armConfirmed:
@@ -293,8 +324,23 @@ public final class SleepSupervisor: ObservableObject {
         return sinceStart < bedtimeMinutes
     }
 
-    /// "10:30 PM", for the menu bar tooltip.
+    /// "10:30 PM", for the status texts.
     public var bedtimeStartText: String { BedtimeFormat.time(bedtimeStart) }
+
+    /// The status in one line: the panel's status title and the menu bar
+    /// tooltip read the same words (UX-10).
+    public var statusTitle: String {
+        switch status {
+        case .off: return "Night watch is off"
+        case .outsideHours: return "Night watch starts at \(bedtimeStartText)"
+        case .inUse: return "Night watch is on"
+        case .timerRunning: return "Sleep timer running"
+        case .watching(_, let mediaPlaying, _): return mediaPlaying ? "Something is playing" : "Your Mac is quiet"
+        case .looking: return "Looking with the camera"
+        case .done: return "Display off, work still running"
+        case .noBedtime: return "Bedtime has no length"
+        }
+    }
 
     /// Bedtime's length in minutes, across midnight when it wraps.
     public var bedtimeMinutes: Int {

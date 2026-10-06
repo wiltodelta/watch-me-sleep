@@ -7,6 +7,9 @@ public class TimerManager: ObservableObject {
 
     /// How long before the timer runs out the warning shows and the volume fades.
     public static let finalPhaseDuration: TimeInterval = 60
+    /// The lengths offered for one click, in hours: the panel's buttons and
+    /// the status item's menu list the same ones (UX-11).
+    public static let presetHours: [Double] = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6]
     /// How far the timer moves when someone is still using the Mac at zero.
     public static let postponeMinutes = 15
     /// A deadline missed by this much passed while nothing ticked: the Mac was
@@ -21,6 +24,9 @@ public class TimerManager: ObservableObject {
     /// Someone used the Mac during the final phase, so the timer will be postponed
     /// at zero instead of sleeping the Mac.
     @Published public private(set) var isUserActive: Bool = false
+    /// Work holds the Mac awake, so zero will only turn the display off (UX-04):
+    /// what the panel and the warning promise follows this, not "sleep".
+    @Published public private(set) var endsWithDisplayOff: Bool = false
 
     private var timer: Timer?
     private var targetDate: Date?
@@ -54,6 +60,12 @@ public class TimerManager: ObservableObject {
     // Seam for tests: seconds since the last keyboard or mouse input.
     var idleSecondsProvider: () -> TimeInterval = { SystemSignals.idleSeconds() }
 
+    // Seam for tests: processes holding the Mac awake with work.
+    var workHolders: () -> [String] = { SystemSignals.wakeHolders().work }
+    private var lastWorkCheck: Date = .distantPast
+    /// Work starts and stops slowly; the promise need not track it by the second.
+    private static let workCheckInterval: TimeInterval = 15
+
     // Seam for tests: the output volume the final phase fades.
     var volume: VolumeControl = SystemVolumeFader()
 
@@ -72,6 +84,7 @@ public class TimerManager: ObservableObject {
     public func startTimer(hours: Double, finalPhaseCheck: FinalPhaseCheck? = nil) {
         stopTimer()
         generation += 1
+        refreshEndAction(force: true)
         self.finalPhaseCheck = finalPhaseCheck
 
         totalTime = hours * 3600
@@ -135,6 +148,7 @@ public class TimerManager: ObservableObject {
         }
 
         remainingTime = targetDate.timeIntervalSince(now())
+        refreshEndAction(force: false)
 
         if remainingTime < -Self.overdueAfter {
             // Ran out while the Mac slept (lid closed, Apple menu): its job is
@@ -158,6 +172,13 @@ public class TimerManager: ObservableObject {
         }
 
         notifyTimerUpdated()
+    }
+
+    private func refreshEndAction(force: Bool) {
+        guard force || now().timeIntervalSince(lastWorkCheck) >= Self.workCheckInterval else { return }
+        lastWorkCheck = now()
+        let displayOnly = !workHolders().isEmpty
+        if endsWithDisplayOff != displayOnly { endsWithDisplayOff = displayOnly }
     }
 
     private func updateFinalPhase() {
@@ -206,7 +227,8 @@ public class TimerManager: ObservableObject {
     /// (`caffeinate`, a download, a build), only the display goes off: sleeping
     /// would cut that work off, and the Mac sleeps by itself once it lets go.
     private func putComputerToSleep(_ kind: SleepKind) {
-        let work = kind == .unlessWorkHolds ? SystemSignals.wakeHolders().work : []
+        // The same reading `endsWithDisplayOff` promised from.
+        let work = kind == .unlessWorkHolds ? workHolders() : []
         let command = work.isEmpty ? "sleepnow" : "displaysleepnow"
         if !work.isEmpty {
             let holders = work.joined(separator: ", ")
@@ -228,8 +250,9 @@ public class TimerManager: ObservableObject {
                 NSApp.activate()
 
                 let alert = NSAlert()
-                alert.messageText = "Sleep failed"
-                alert.informativeText = "Unable to put the computer to sleep.\n\nError: \(error.localizedDescription)"
+                // What happened, why, and what to do now (UX-13).
+                alert.messageText = "Couldn’t put your Mac to sleep"
+                alert.informativeText = "\(error.localizedDescription)\n\nChoose Apple menu > Sleep instead."
                 alert.alertStyle = .warning
                 alert.addButton(withTitle: "OK")
                 alert.runModal()

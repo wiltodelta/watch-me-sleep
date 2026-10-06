@@ -7,6 +7,14 @@ import SwiftUI
 public final class MenuBarPanelWindow: NSPanel {
     public override var canBecomeKey: Bool { true }
     public override var canBecomeMain: Bool { false }
+
+    /// Escape closes the panel, as it does a menu (UX-03); it used to stop a
+    /// running timer through the Stop Timer button's cancel shortcut.
+    var onCancel: (() -> Void)?
+
+    public override func cancelOperation(_ sender: Any?) {
+        onCancel?()
+    }
 }
 
 extension NSPanel {
@@ -158,6 +166,7 @@ public final class MenuBarPanelController {
         // `startObservingResize()` re-pins the top edge under the menu bar.
         panel.setContentSize(size)
         panel.contentViewController = PanelHostController(rootView: rootView, width: size.width)
+        panel.onCancel = { [weak self] in self?.close() }
     }
 
     public func show(relativeTo button: NSStatusBarButton) {

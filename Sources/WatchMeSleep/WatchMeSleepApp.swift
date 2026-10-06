@@ -1,3 +1,4 @@
+import Combine
 import os
 import SwiftUI
 import WatchMeSleepCore
@@ -19,6 +20,15 @@ struct WatchMeSleepApp: App {
                 Button("Settings…") { openAppSettings() }
                     .keyboardShortcut(",")
             }
+            // The default item opened "Help isn’t available" (UX-09); the
+            // README is the app's documentation.
+            CommandGroup(replacing: .help) {
+                Button("Watch Me While I Fall Asleep Help") {
+                    if let url = URL(string: "https://github.com/wiltodelta/watch-me-sleep#readme") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            }
         }
     }
 }
@@ -31,6 +41,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var sleepWarning: SleepWarningController?
     private var timerManager = TimerManager.shared
     private var supervisor = SleepSupervisor.shared
+    private var statusObservation: AnyCancellable?
 
     private func isAnotherInstanceRunning() -> Bool {
         guard let bundleID = Bundle.main.bundleIdentifier else {
@@ -101,6 +112,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // The night watch: sleep the Mac once nobody is using it at bedtime.
         supervisor.startMonitoring()
+        // The tooltip says what the panel's status says, so it follows it.
+        statusObservation = supervisor.$status.receive(on: RunLoop.main).sink { [weak self] _ in
+            self?.updateStatusItem()
+        }
 
         // Sparkle's daily checks (Updater).
         Updater.shared.start()
@@ -150,6 +165,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
 
+        // What the night watch is doing, as on the panel (UX-11).
+        let status = NSMenuItem(title: supervisor.statusTitle, action: nil, keyEquivalent: "")
+        status.isEnabled = false
+        menu.addItem(status)
+        menu.addItem(.separator())
+
         if timerManager.isTimerActive {
             let stop = NSMenuItem(title: "Stop Timer", action: #selector(quickStopTimer), keyEquivalent: "")
             stop.target = self
@@ -159,10 +180,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let startItem = NSMenuItem(title: "Start Timer", action: nil, keyEquivalent: "")
             setMenuSymbol("timer", on: startItem)
             let submenu = NSMenu()
-            let presets: [(String, Double)] = [
-                ("15 minutes", 0.25), ("30 minutes", 0.5), ("1 hour", 1.0), ("1.5 hours", 1.5), ("2 hours", 2.0)
-            ]
-            for (title, hours) in presets {
+            // The panel's presets, written the same way (UX-08, UX-11).
+            for hours in TimerManager.presetHours {
+                let title = DurationFormat.compact(hours: hours)
                 let item = NSMenuItem(title: title, action: #selector(quickStartTimer(_:)), keyEquivalent: "")
                 item.target = self
                 item.representedObject = hours
@@ -239,16 +259,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             if timerManager.isTimerActive {
                 iconName = "MenuIconActive"
 
-                let time = Int(max(0, timerManager.remainingTime))
-                let hours = time / 3600
-                let minutes = (time % 3600) / 60
-                let seconds = time % 60
-
-                if hours > 0 {
-                    countdown = String(format: "%d:%02d:%02d", hours, minutes, seconds)
-                } else {
-                    countdown = String(format: "%02d:%02d", minutes, seconds)
-                }
+                countdown = DurationFormat.countdown(timerManager.remainingTime)
             } else {
                 iconName = "MenuIcon"
             }
@@ -263,20 +274,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let title = countdown.isEmpty ? "" : " " + countdown
             button.attributedTitle = NSAttributedString(string: title, attributes: [.font: font])
             button.imagePosition = .imageLeft
-            button.toolTip = statusTooltip()
+            // The panel's status title (UX-10): one sentence for the same state.
+            button.toolTip = supervisor.statusTitle
             button.setAccessibilityValue(countdown.isEmpty ? nil : "\(countdown) remaining")
         }
     }
 
-    private func statusTooltip() -> String {
-        if timerManager.isTimerActive {
-            return "Watch Me While I Fall Asleep running"
-        }
-        if supervisor.isEnabled {
-            return "Night watch on from \(supervisor.bedtimeStartText)"
-        }
-        return "Watch Me While I Fall Asleep"
-    }
 }
 
 extension AppDelegate: NSWindowDelegate {

@@ -78,6 +78,7 @@ final class SleepSupervisorTests: XCTestCase {
         timer.idleSecondsProvider = { [unowned self] in self.idle }
         timer.volume = FakeVolume()
         timer.sleepHandler = { [unowned self] _ in self.slept = true }
+        timer.workHolders = { [] }
 
         supervisor = SleepSupervisor.shared
         supervisor.defaults = UserDefaults(suiteName: "SleepSupervisorTests")!
@@ -142,6 +143,38 @@ final class SleepSupervisorTests: XCTestCase {
         supervisor.bedtimeEnd = 17 * 60
         XCTAssertTrue(supervisor.isWithinWindow(at(12, 0)), "Night shift sleepers")
         XCTAssertFalse(supervisor.isWithinWindow(at(23, 0)))
+    }
+
+    func testEqualTimesSayThereIsNoBedtime() {
+        supervisor.bedtimeStart = 22 * 60
+        supervisor.bedtimeEnd = 22 * 60
+        idleFor(minutes: 5)
+        XCTAssertEqual(supervisor.status, .noBedtime, "Not \"starts at 10 PM\": it never starts")
+        XCTAssertEqual(supervisor.statusTitle, "Bedtime has no length")
+    }
+
+    func testATimerStartedOrStoppedUpdatesTheStatusWithoutActing() {
+        supervisor.observeTimer()
+        idle = 15 * 60 // In bedtime and idle long enough for a look, were it a tick.
+
+        timer.startTimer(hours: 1)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        XCTAssertEqual(supervisor.status, .timerRunning)
+
+        timer.stopTimer()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        XCTAssertNotEqual(supervisor.status, .timerRunning)
+        XCTAssertEqual(looks, 0, "Only the status: no look in the instant a timer ends")
+    }
+
+    func testTheTooltipTitleFollowsTheStatus() {
+        supervisor.isEnabled = false
+        idleFor(minutes: 1)
+        XCTAssertEqual(supervisor.statusTitle, "Night watch is off")
+        supervisor.isEnabled = true
+        timer.startTimer(hours: 1)
+        idleFor(minutes: 1)
+        XCTAssertEqual(supervisor.statusTitle, "Sleep timer running")
     }
 
     func testEqualTimesMakeNoBedtime() {

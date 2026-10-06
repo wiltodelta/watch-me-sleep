@@ -43,16 +43,18 @@ Timer:
 
 - Remaining time shown in the menu bar next to the icon.
 - Any duration from 15 minutes to 12 hours, plus one-click presets (15m, 30m,
-  1h, 1.5h, 2h, 3h, 4h, 6h).
-- Extend a running timer by +5, +15, +30, or +60 minutes.
+  1h, 1h 30m, 2h, 3h, 4h, 6h).
+- Extend a running timer by +5m, +15m, +30m or +1h.
+- Escape closes the panel; a running timer keeps going.
 - Right-click the icon for a quick menu: start a common timer, stop the current
   one, or open Settings.
 - Circular progress ring, and a moon icon that fills in while a timer runs.
 
 Every timer, set by hand or by the night watch:
 
-- A gentle last minute: a small panel in the corner counts down with **+15 Min**
-  and **Sleep Now**, and the volume fades out. It shows over full-screen video
+- A gentle last minute: a small panel in the corner counts down with **+15m**
+  and **Sleep Now**, and the volume fades out. When work holds the Mac awake,
+  the panel and the countdown say the display turns off, not that it sleeps. It shows over full-screen video
   and does not take the keyboard from the player. The volume comes back when
   the Mac or its display wakes.
 - Never sleeps a Mac in use: touch the mouse or keyboard during that last
@@ -133,8 +135,9 @@ During those hours, once you stop using the Mac:
    and it stays awake another 15 minutes. A timer that ran out while the Mac
    was already asleep (lid closed) is dropped on wake.
 
-Right-click the icon for a quick menu that starts a common timer
-(15m/30m/1h/1.5h/2h), stops the current one, or opens Settings.
+Right-click the icon for a quick menu that shows what the night watch is doing,
+starts a timer with the panel's presets, stops the current one, or opens
+Settings. **Help > Watch Me While I Fall Asleep Help** opens this README.
 
 ## Settings
 

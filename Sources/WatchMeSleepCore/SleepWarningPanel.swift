@@ -49,18 +49,18 @@ struct SleepWarningView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "moon.zzz.fill")
+                Image(systemName: timerManager.endsWithDisplayOff ? "display" : "moon.zzz.fill")
                     .font(.title2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.panelSecondary)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Going to sleep in \(seconds) s")
+                    Text(title)
                         .font(.headline)
                         .monospacedDigit()
                     Text(subtitle)
                         .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.panelSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -68,10 +68,12 @@ struct SleepWarningView: View {
 
             HStack(spacing: 8) {
                 Spacer()
-                Button("+\(TimerManager.postponeMinutes) Min") {
+                Button(postponeText) {
                     timerManager.addTime(minutes: TimerManager.postponeMinutes)
                 }
-                .accessibilityLabel("Add \(TimerManager.postponeMinutes) minutes")
+                // The panel's "+15m", written and named the same way (UX-08, UX-15).
+                .durationAccessibility(visible: postponeText,
+                                       spoken: "Add " + DurationFormat.words(minutes: TimerManager.postponeMinutes))
                 .accessibilityIdentifier("postponeSleep")
 
                 Button("Sleep Now") {
@@ -89,10 +91,22 @@ struct SleepWarningView: View {
         Int(max(0, timerManager.remainingTime).rounded(.up))
     }
 
+    private var postponeText: String {
+        "+" + DurationFormat.compact(minutes: TimerManager.postponeMinutes)
+    }
+
+    /// What zero really does (UX-04): with work holding the Mac, only the
+    /// display goes off, so the warning must not promise sleep.
+    private var title: String {
+        timerManager.endsWithDisplayOff
+            ? "Turning the display off in \(seconds) s"
+            : "Going to sleep in \(seconds) s"
+    }
+
     private var subtitle: String {
         if timerManager.isUserActive {
-            return "You are using your Mac, so it will stay awake "
-                + "\(TimerManager.postponeMinutes) more minutes."
+            return "You are using your Mac, so it stays awake for another "
+                + "\(DurationFormat.words(minutes: TimerManager.postponeMinutes))."
         }
         return "Use the mouse or keyboard to keep it awake."
     }
