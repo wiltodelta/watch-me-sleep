@@ -7,11 +7,13 @@ import os
 /// The question is never "is the Mac idle" (macOS sleeps an idle Mac by itself)
 /// but "is something keeping it awake that nobody is using any more".
 enum NightWatchPolicy {
-    /// No input for this long and the camera takes its first look.
+    /// Media playing and no input this long: the camera takes its first look.
     static let firstLookIdle: TimeInterval = 10 * 60
     /// Wait before looking again after open eyes or an unclear picture.
     static let recheckInterval: TimeInterval = 10 * 60
-    /// Without a camera: nothing playing and no input this long means nobody is there.
+    /// Nothing playing and no input this long means nobody is there. No camera
+    /// here: with nothing playing, nobody is watching anything, and macOS would
+    /// dim the display about now anyway.
     static let quietIdle: TimeInterval = 20 * 60
     /// Without a camera: media playing and no input this long, ask "still watching?".
     static let stillWatchingIdle: TimeInterval = 90 * 60
@@ -42,13 +44,17 @@ enum NightWatchPolicy {
 
         /// The camera can answer: usable, and not unclear too often this stretch.
         var cameraTrusted: Bool { cameraUsable && unclearLooks < maxUnclearLooks }
+
+        /// The camera answers only the one unclear case: something plays and
+        /// nobody touches the Mac. Watching, or asleep in front of it?
+        var cameraDecides: Bool { mediaPlaying && cameraTrusted }
     }
 
     static func decide(_ input: Input) -> Decision {
         if input.idle >= askAnywayIdle {
             return .askStillWatching
         }
-        if input.cameraTrusted {
+        if input.cameraDecides {
             return input.idle >= firstLookIdle && input.lookDue ? .look : .wait
         }
         if !input.mediaPlaying {
@@ -81,9 +87,11 @@ public final class SleepSupervisor: ObservableObject {
     // MARK: - Settings (persisted)
 
     @Published public var isEnabled: Bool = true { didSet { settingsChanged() } }
-    @Published public var activeAfterHour: Int = 21 { didSet { persist() } }
-    /// End of the bedtime window (exclusive), the next morning when it wraps.
-    @Published public var windowEndHour: Int = 8 { didSet { persist() } }
+    /// Bedtime start, in minutes after midnight.
+    @Published public var bedtimeStart: Int = 21 * 60 { didSet { persist() } }
+    /// Bedtime end (exclusive), in minutes after midnight; the next morning
+    /// when it is earlier than the start.
+    @Published public var bedtimeEnd: Int = 8 * 60 { didSet { persist() } }
     /// Look with the camera when it is unclear whether anyone is watching.
     @Published public var usesCamera: Bool = true { didSet { persist() } }
 
@@ -124,10 +132,13 @@ public final class SleepSupervisor: ObservableObject {
     private var isLoaded = false
     private let log = Logger.app("nightwatch")
 
-    private enum Key {
+    enum Key {
         static let enabled = "NightWatch.enabled"
-        static let afterHour = "AutoActivation.afterHour"
-        static let untilHour = "AutoActivation.untilHour"
+        static let bedtimeStart = "NightWatch.bedtimeStart"
+        static let bedtimeEnd = "NightWatch.bedtimeEnd"
+        // Whole hours, as 3.0 and earlier stored them; read once to carry over.
+        static let legacyStartHour = "AutoActivation.afterHour"
+        static let legacyEndHour = "AutoActivation.untilHour"
         static let usesCamera = "AutoActivation.checksWithCamera"
     }
 
@@ -199,7 +210,7 @@ public final class SleepSupervisor: ObservableObject {
         case .wait:
             // To the minute, as shown: a status that changes every tick would
             // re-render the panel every 10 seconds for nothing.
-            let next = input.cameraTrusted
+            let next = input.cameraDecides
                 ? Self.minuteUp(max(stretch.nextLook, now().addingTimeInterval(NightWatchPolicy.firstLookIdle - idle)))
                 : nil
             setStatus(.watching(idleMinutes: Int(idle / 60), mediaPlaying: holders.mediaPlaying, nextLook: next))
@@ -275,27 +286,44 @@ public final class SleepSupervisor: ObservableObject {
         if status != new { status = new }
     }
 
-    /// Whether `date` falls inside `[activeAfterHour, windowEndHour)`, wrapping
-    /// across midnight when the start hour is later than the end hour.
+    /// Whether `date` falls inside `[bedtimeStart, bedtimeEnd)`, wrapping across
+    /// midnight when the start is later than the end. Equal times make no window.
     func isWithinWindow(_ date: Date, calendar: Calendar = .current) -> Bool {
-        let hour = calendar.component(.hour, from: date)
-        if activeAfterHour <= windowEndHour {
-            return hour >= activeAfterHour && hour < windowEndHour
-        }
-        return hour >= activeAfterHour || hour < windowEndHour
+        let sinceStart = (BedtimeFormat.minutes(of: date, calendar: calendar) - bedtimeStart + 24 * 60) % (24 * 60)
+        return sinceStart < bedtimeMinutes
+    }
+
+    /// "10:30 PM", for the menu bar tooltip.
+    public var bedtimeStartText: String { BedtimeFormat.time(bedtimeStart) }
+
+    /// Bedtime's length in minutes, across midnight when it wraps.
+    public var bedtimeMinutes: Int {
+        (bedtimeEnd - bedtimeStart + 24 * 60) % (24 * 60)
     }
 
     // MARK: - Persistence
+
+    /// A bedtime in minutes after midnight, or the whole hour 3.0 and earlier
+    /// stored under the legacy key, or nil when neither is there.
+    static func storedMinutes(_ defaults: UserDefaults, key: String, legacyHourKey: String) -> Int? {
+        if defaults.object(forKey: key) != nil {
+            return defaults.integer(forKey: key)
+        }
+        if defaults.object(forKey: legacyHourKey) != nil {
+            return defaults.integer(forKey: legacyHourKey) * 60
+        }
+        return nil
+    }
 
     private func load() {
         if defaults.object(forKey: Key.enabled) != nil {
             isEnabled = defaults.bool(forKey: Key.enabled)
         }
-        if defaults.object(forKey: Key.afterHour) != nil {
-            activeAfterHour = defaults.integer(forKey: Key.afterHour)
+        if let start = Self.storedMinutes(defaults, key: Key.bedtimeStart, legacyHourKey: Key.legacyStartHour) {
+            bedtimeStart = start
         }
-        if defaults.object(forKey: Key.untilHour) != nil {
-            windowEndHour = defaults.integer(forKey: Key.untilHour)
+        if let end = Self.storedMinutes(defaults, key: Key.bedtimeEnd, legacyHourKey: Key.legacyEndHour) {
+            bedtimeEnd = end
         }
         if defaults.object(forKey: Key.usesCamera) != nil {
             usesCamera = defaults.bool(forKey: Key.usesCamera)
@@ -305,8 +333,8 @@ public final class SleepSupervisor: ObservableObject {
     private func persist() {
         guard isLoaded else { return }
         defaults.set(isEnabled, forKey: Key.enabled)
-        defaults.set(activeAfterHour, forKey: Key.afterHour)
-        defaults.set(windowEndHour, forKey: Key.untilHour)
+        defaults.set(bedtimeStart, forKey: Key.bedtimeStart)
+        defaults.set(bedtimeEnd, forKey: Key.bedtimeEnd)
         defaults.set(usesCamera, forKey: Key.usesCamera)
     }
 

@@ -226,6 +226,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()
         settingsWindow?.makeKeyAndOrderFront(nil)
+        // AppKit would focus the first editable control, the bedtime field, so a
+        // stray key could change bedtime; start with nothing focused instead.
+        settingsWindow?.makeFirstResponder(nil)
     }
 
     private func updateStatusItem() {
@@ -270,7 +273,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return "Watch Me While I Fall Asleep running"
         }
         if supervisor.isEnabled {
-            return "Night watch on from \(HourFormat.label(supervisor.activeAfterHour))"
+            return "Night watch on from \(supervisor.bedtimeStartText)"
         }
         return "Watch Me While I Fall Asleep"
     }

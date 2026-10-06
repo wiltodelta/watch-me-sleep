@@ -13,10 +13,14 @@ final class NightWatchPolicyTests: XCTestCase {
                                    unclearLooks: unclear, lookDue: now >= nextLook))
     }
 
-    func testCameraLooksAfterTenQuietMinutes() {
+    func testCameraLooksAfterTenMinutesOfMedia() {
         XCTAssertEqual(decide(idleMinutes: 9), .wait)
         XCTAssertEqual(decide(idleMinutes: 10), .look)
-        XCTAssertEqual(decide(idleMinutes: 10, media: false), .look, "Reading on screen is quiet too")
+    }
+
+    func testAQuietMacNeverUsesTheCamera() {
+        XCTAssertEqual(decide(idleMinutes: 10, media: false), .wait, "Nothing playing: nothing to ask the camera")
+        XCTAssertEqual(decide(idleMinutes: 20, media: false), .armConfirmed)
     }
 
     func testCameraWaitsForTheNextLook() {
@@ -78,8 +82,8 @@ final class SleepSupervisorTests: XCTestCase {
         supervisor = SleepSupervisor.shared
         supervisor.defaults = UserDefaults(suiteName: "SleepSupervisorTests")!
         supervisor.isEnabled = true
-        supervisor.activeAfterHour = 21
-        supervisor.windowEndHour = 8
+        supervisor.bedtimeStart = 21 * 60
+        supervisor.bedtimeEnd = 8 * 60
         supervisor.usesCamera = true
         supervisor.now = { [unowned self] in self.clock }
         supervisor.idleSecondsProvider = { [unowned self] in self.idle }
@@ -113,6 +117,52 @@ final class SleepSupervisorTests: XCTestCase {
     private func idleFor(minutes: Double) {
         idle = minutes * 60
         supervisor.tick()
+    }
+
+    private func at(_ hour: Int, _ minute: Int) -> Date {
+        var components = DateComponents()
+        (components.year, components.month, components.day) = (2026, 1, 1)
+        (components.hour, components.minute) = (hour, minute)
+        return Calendar.current.date(from: components)!
+    }
+
+    func testBedtimeIsMinutePrecise() {
+        supervisor.bedtimeStart = 22 * 60 + 30
+        supervisor.bedtimeEnd = 6 * 60 + 45
+        XCTAssertFalse(supervisor.isWithinWindow(at(22, 29)))
+        XCTAssertTrue(supervisor.isWithinWindow(at(22, 30)))
+        XCTAssertTrue(supervisor.isWithinWindow(at(0, 0)), "Across midnight")
+        XCTAssertTrue(supervisor.isWithinWindow(at(6, 44)))
+        XCTAssertFalse(supervisor.isWithinWindow(at(6, 45)), "The end is exclusive")
+        XCTAssertEqual(supervisor.bedtimeMinutes, 8 * 60 + 15)
+    }
+
+    func testADaytimeBedtimeWorksToo() {
+        supervisor.bedtimeStart = 9 * 60
+        supervisor.bedtimeEnd = 17 * 60
+        XCTAssertTrue(supervisor.isWithinWindow(at(12, 0)), "Night shift sleepers")
+        XCTAssertFalse(supervisor.isWithinWindow(at(23, 0)))
+    }
+
+    func testEqualTimesMakeNoBedtime() {
+        supervisor.bedtimeStart = 22 * 60
+        supervisor.bedtimeEnd = 22 * 60
+        XCTAssertFalse(supervisor.isWithinWindow(at(22, 0)))
+        XCTAssertFalse(supervisor.isWithinWindow(at(3, 0)))
+        XCTAssertEqual(supervisor.bedtimeMinutes, 0)
+    }
+
+    func testWholeHoursFromBeforeCarryOver() {
+        let defaults = UserDefaults(suiteName: "BedtimeMigrationTests")!
+        defer { defaults.removePersistentDomain(forName: "BedtimeMigrationTests") }
+        let key = SleepSupervisor.Key.bedtimeStart, legacy = SleepSupervisor.Key.legacyStartHour
+
+        XCTAssertNil(SleepSupervisor.storedMinutes(defaults, key: key, legacyHourKey: legacy))
+        defaults.set(22, forKey: legacy)
+        XCTAssertEqual(SleepSupervisor.storedMinutes(defaults, key: key, legacyHourKey: legacy), 22 * 60)
+        defaults.set(22 * 60 + 30, forKey: key)
+        XCTAssertEqual(SleepSupervisor.storedMinutes(defaults, key: key, legacyHourKey: legacy), 22 * 60 + 30,
+                       "Minutes, once stored, win over the old hour")
     }
 
     func testInUseDoesNothing() {

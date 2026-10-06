@@ -21,9 +21,12 @@ Night watch (on by default, during bedtime hours you choose):
 - Watches what keeps the Mac awake, not just how long it sat idle: macOS already
   sleeps an idle Mac, so the night watch steps in when a video, music, or a
   podcast keeps it up after you stopped using it.
-- When unsure, the camera takes a short look: closed eyes, or nobody there (or
-  too dark to see), start a 15-minute timer; open eyes leave a film you are
-  still watching alone, and it looks again in 10 minutes.
+- When something plays and nobody touches the Mac, the camera takes a short
+  look: closed eyes, or nobody there (or too dark to see), start a 15-minute
+  timer; open eyes leave a film you are still watching alone, and it looks
+  again in 10 minutes. Two detectors must agree that eyes are closed, so a
+  smile or glasses are not taken for sleep
+  ([measurement](docs/eye-detection.md)).
 - Without the camera it still works: nothing playing and no input for 20
   minutes starts the timer; something playing for 90 minutes without input
   asks whether you are still watching.
@@ -103,11 +106,12 @@ mv "Watch Me While I Fall Asleep.app" /Applications/
 
 ### Night watch
 
-It is on from 9 PM to 8 AM by default; change the hours in Settings. During
-those hours, once you stop using the Mac:
+It is on from 9 PM to 8 AM by default. Set bedtime in Settings to any times,
+to the minute (10:30 PM to 6:45 AM, or a daytime sleep after a night shift).
+During those hours, once you stop using the Mac:
 
-- Nothing playing, nobody at the keyboard: after 10 minutes the camera looks
-  (or, without it, after 20 minutes a 15-minute timer starts).
+- Nothing playing, nobody at the keyboard: after 20 minutes a 15-minute timer
+  starts. The camera stays off: with nothing playing, nobody is watching.
 - Something playing: after 10 minutes the camera looks. Closed eyes or nobody
   there start a 15-minute timer; open eyes mean you are watching, and it looks
   again in 10 minutes. If the picture stays unclear (dim light, a face turned
@@ -138,7 +142,8 @@ Open Settings from **Settings…** in the panel, from the right-click menu, or b
 opening the app again from Finder or Spotlight (useful if its menu bar icon is
 hidden).
 
-- **Night watch**: on or off, bedtime hours, and **Use the camera**. **Camera
+- **Night watch**: on or off, bedtime (any start and end time), and **Use the
+  camera**. **Camera
   preview > Show** turns the camera on to check that it sees your face; it goes
   off again with **Hide** or when Settings closes.
 - **Startup**: launch at login.

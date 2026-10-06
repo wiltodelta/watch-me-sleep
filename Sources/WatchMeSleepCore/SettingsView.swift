@@ -17,9 +17,6 @@ public struct SettingsView: View {
     /// because Settings opened.
     @State private var showsPreview = false
 
-    private let startHourOptions = [20, 21, 22, 23, 0, 1, 2]
-    private let endHourOptions = [5, 6, 7, 8, 9, 10]
-
     public init() {}
 
     public var body: some View {
@@ -45,12 +42,17 @@ public struct SettingsView: View {
             Toggle("Sleep the Mac when I fall asleep", isOn: $supervisor.isEnabled)
 
             if supervisor.isEnabled {
-                Picker("Bedtime from", selection: $supervisor.activeAfterHour) {
-                    ForEach(startHourOptions, id: \.self) { Text(hourLabel($0)).tag($0) }
+                // Any time to the minute, the way Night Shift schedules: a
+                // short list of whole hours left out early sleepers, late
+                // risers and day sleepers.
+                LabeledContent("Bedtime") {
+                    HStack(spacing: 6) {
+                        timeField("Bedtime starts", minutes: $supervisor.bedtimeStart)
+                        Text("to").foregroundStyle(.secondary)
+                        timeField("Bedtime ends", minutes: $supervisor.bedtimeEnd)
+                    }
                 }
-                Picker("Until", selection: $supervisor.windowEndHour) {
-                    ForEach(endHourOptions, id: \.self) { Text(hourLabel($0)).tag($0) }
-                }
+                .accessibilityIdentifier("bedtime")
                 // On only where looking can really happen, so the switch never
                 // claims a look the missing camera access would skip.
                 Toggle("Use the camera", isOn: Binding(
@@ -80,14 +82,22 @@ public struct SettingsView: View {
     }
 
     private var nightWatchFooter: String {
-        let base = "At bedtime, when you stop using your Mac but a film or music keeps it awake, it sleeps "
-            + "the Mac after a minute's warning. With work running, only the display turns off."
+        let base = bedtimeSummary + " When you stop using your Mac but a film or music keeps it awake, "
+            + "it sleeps the Mac after a minute's warning. With work running, only the display turns off."
         guard supervisor.isEnabled, supervisor.usesCamera else { return base }
         if cameraAccess == .denied || cameraAccess == .restricted {
             return base + " Camera access is off in System Settings, so it decides without looking."
         }
         guard cameraOn else { return base }
         return base + " When unsure, it looks with the camera for closed eyes. Nothing is recorded."
+    }
+
+    /// "Every day, 8 hr, 30 min." or a note that equal times make no bedtime.
+    private var bedtimeSummary: String {
+        guard supervisor.bedtimeMinutes > 0 else {
+            return "Bedtime starts and ends at the same time, so the night watch never runs."
+        }
+        return "Every day, \(BedtimeFormat.duration(supervisor.bedtimeMinutes))."
     }
 
     /// Asks for camera access here, while the person is choosing it, so the
@@ -151,7 +161,12 @@ public struct SettingsView: View {
         }
     }
 
-    private func hourLabel(_ hour: Int) -> String {
-        HourFormat.label(hour)
+    private func timeField(_ label: String, minutes: Binding<Int>) -> some View {
+        DatePicker(label, selection: Binding(
+            get: { BedtimeFormat.date(minutes.wrappedValue) },
+            set: { minutes.wrappedValue = BedtimeFormat.minutes(of: $0) }
+        ), displayedComponents: .hourAndMinute)
+        .labelsHidden()
+        .datePickerStyle(.field)
     }
 }

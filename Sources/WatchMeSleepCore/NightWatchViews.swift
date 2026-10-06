@@ -39,7 +39,7 @@ struct NightWatchStatusView: View {
     private var title: String {
         switch supervisor.status {
         case .off: return "Night watch is off"
-        case .outsideHours: return "Night watch starts at \(HourFormat.label(supervisor.activeAfterHour))"
+        case .outsideHours: return "Night watch starts at \(supervisor.bedtimeStartText)"
         case .inUse: return "Night watch is on"
         case .timerRunning: return "Sleep timer running"
         case .watching(_, let mediaPlaying, _): return mediaPlaying ? "Something is playing" : "Your Mac is quiet"

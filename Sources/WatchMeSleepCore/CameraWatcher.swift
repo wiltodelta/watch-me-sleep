@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreImage
 import Foundation
 import Vision
 import os
@@ -35,6 +36,8 @@ public final class CameraWatcher: NSObject, ObservableObject {
     private let videoOutput = AVCaptureVideoDataOutput()
     let videoOutputQueue = DispatchQueue(label: "CameraWatcher.VideoOutput", qos: .userInitiated)
     private let sequenceHandler = VNSequenceRequestHandler()
+    /// Core Image's face detector, for its blink classifier (`EyeReading`).
+    private let blinkDetector = EyeReading.makeBlinkDetector()
 
     /// Shadow of `isFaceDetected` on the video queue, so main hears only flips.
     private var faceDetectedShadow = false
@@ -158,21 +161,19 @@ public final class CameraWatcher: NSObject, ObservableObject {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         publishAspectRatio(of: pixelBuffer)
 
-        let request = VNDetectFaceLandmarksRequest()
-        request.revision = VNDetectFaceLandmarksRequestRevision3
+        let request = EyeReading.makeLandmarksRequest()
         guard (try? sequenceHandler.perform([request], on: pixelBuffer, orientation: .up)) != nil else {
             return
         }
 
-        // One value per frame for every consumer: the eyes' average aspect
-        // ratio, or nil when no face with both eyes was found.
-        let ear: Double? = (request.results?.first?.landmarks).flatMap { landmarks in
-            guard let left = landmarks.leftEye, let right = landmarks.rightEye else { return nil }
-            return (EyeAspectRatio.ratio(for: left) + EyeAspectRatio.ratio(for: right)) / 2
-        }
+        // Two detectors, because one misreads: Vision's eye aspect ratio took
+        // narrow open eyes for closed, and Core Image's blink classifier
+        // disagrees with it on exactly those (`EyeReading`).
+        let eyes = EyeReading.read(faces: request.results, image: CIImage(cvPixelBuffer: pixelBuffer),
+                                   detector: blinkDetector, deciding: presenceCheck != nil)
 
-        setFaceDetected(ear != nil)
-        recordPresence(ear: ear, at: CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer)))
+        setFaceDetected(eyes != nil)
+        recordPresence(eyes: eyes, at: CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer)))
     }
 
     private func publishAspectRatio(of pixelBuffer: CVPixelBuffer) {

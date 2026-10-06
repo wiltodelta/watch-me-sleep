@@ -3,8 +3,8 @@ import Vision
 /// Computes the Eye Aspect Ratio (EAR) from Vision eye-landmark points.
 ///
 /// EAR is the mean of the two vertical eyelid distances divided by the horizontal
-/// eye width. Based on typical values, open eyes sit around 0.25-0.35 and closed
-/// eyes around 0.10-0.20. Vision returns different point counts depending on the
+/// eye width. Measured values and the closed threshold live in `EyeReading`;
+/// alone it misreads narrow open eyes. Vision returns different point counts depending on the
 /// model revision and device, so each contour layout maps the classic six EAR
 /// points (p1..p6) before applying the same formula.
 public enum EyeAspectRatio {

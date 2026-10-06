@@ -33,12 +33,11 @@ struct PresenceCheck {
     /// A lost face tolerated inside a closed-eye run before it starts over: a
     /// head moving on the pillow should not undo it, a face gone for long should.
     let missedSecondsTolerated: TimeInterval
+    /// Open eyes for this long break a closed-eye run. A frame or two read as
+    /// open is detector noise (one closed photo in eight misread in the dark,
+    /// `docs/eye-detection.md`); waking up keeps them open for longer.
+    static let reopenSecondsToBreak: TimeInterval = 1
 
-    /// Below this Eye Aspect Ratio the eyes count as closed, at or above it as
-    /// open. Measured live (2026-10-05, built-in camera, `.low` preset): open
-    /// eyes looking at the screen ran 0.20-0.26, median 0.234, never 0.27;
-    /// blinks dropped to 0.03.
-    static let earClosedThreshold = 0.20
     /// A longer gap between frames counts as this much, so one stall cannot
     /// settle a verdict on its own.
     static let maxFrameGap: TimeInterval = 0.5
@@ -53,6 +52,7 @@ struct PresenceCheck {
     private var openSeconds: TimeInterval = 0
     private var closedRun: TimeInterval = 0
     private var missedRun: TimeInterval = 0
+    private var openRun: TimeInterval = 0
 
     init(lookSeconds: TimeInterval = 30, openSecondsForAwake: TimeInterval = 3, absentFaceShare: Double = 0.1,
          closedSecondsForAsleep: TimeInterval = 15, missedSecondsTolerated: TimeInterval = 15) {
@@ -63,25 +63,27 @@ struct PresenceCheck {
         self.missedSecondsTolerated = missedSecondsTolerated
     }
 
-    /// One frame at `time` (seconds, any steady clock): `ear` is the eyes'
-    /// average aspect ratio, or nil when no face with both eyes was found.
-    /// Returns the verdict once there is one.
-    mutating func record(ear: Double?, at time: TimeInterval) -> Verdict? {
+    /// One frame at `time` (seconds, any steady clock): what the eyes show, or
+    /// nil when no face was found. Returns the verdict once there is one.
+    mutating func record(eyes: EyeReading?, at time: TimeInterval) -> Verdict? {
         // A frame stands for the time since the one before it.
         let span = lastFrame.map { min(max(time - $0, 0), Self.maxFrameGap) } ?? 0
         lastFrame = time
         frames += 1
         elapsed += span
 
-        if let ear {
+        if let eyes {
             faceSeconds += span
             missedRun = 0
-            if ear < Self.earClosedThreshold {
+            if eyes == .closed {
+                openRun = 0
                 closedRun += span
                 if reached(closedRun, closedSecondsForAsleep) { return .asleep }
             } else {
-                // Any reopening breaks the run: that was a blink.
-                closedRun = 0
+                openRun += span
+                if reached(openRun, Self.reopenSecondsToBreak) {
+                    closedRun = 0
+                }
                 openSeconds += span
                 if reached(openSeconds, openSecondsForAwake) { return .awake }
             }
@@ -142,8 +144,8 @@ extension CameraWatcher {
     }
 
     /// One frame into the running look, if there is one. Runs on the video queue.
-    func recordPresence(ear: Double?, at time: TimeInterval) {
-        guard let verdict = presenceCheck?.record(ear: ear, at: time) else { return }
+    func recordPresence(eyes: EyeReading?, at time: TimeInterval) {
+        guard let verdict = presenceCheck?.record(eyes: eyes, at: time) else { return }
         finishPresenceCheck(verdict)
     }
 
