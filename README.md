@@ -16,25 +16,37 @@ only, no Dock icon.
 
 ## Features
 
-Night watch (on by default, during bedtime hours you choose):
+Night watch (on by default, during bedtime hours you choose, or now for a nap):
 
 - Watches what keeps the Mac awake, not just how long it sat idle: macOS already
   sleeps an idle Mac, so the night watch steps in when a video, music, or a
   podcast keeps it up after you stopped using it.
 - When something plays and nobody touches the Mac, the camera takes a short
-  look: closed eyes, or nobody there (or too dark to see), start a 15-minute
-  timer; open eyes leave a film you are still watching alone, and it looks
-  again in 10 minutes. Two detectors must agree that eyes are closed, so a
+  look: closed eyes start a 5-minute timer, so the screen goes off soon after
+  you fall asleep; open eyes leave a film you are still watching alone, and it
+  looks again in 5 minutes. Two detectors must agree that eyes are closed, so a
   smile or glasses are not taken for sleep
   ([measurement](docs/eye-detection.md)).
+- "Nobody there" counts only after the camera has seen you since you last
+  touched the Mac: then you left, or fell asleep turned away. A camera that
+  never saw you may just not cover you (a film on a TV, a laptop across the
+  room), and a frame too dark to see in is not taken for an empty bed.
+- Sound alone (a podcast, an audiobook, white noise) is yours to decide: stop
+  it once you are asleep, or keep it playing through the night with the
+  display off. It asks once, and the panel offers the switch while only sound
+  plays.
 - Without the camera it still works: nothing playing and no input for 20
   minutes starts the timer; something playing for two hours without input
   asks whether you are still watching.
 - Its timer stops the moment you touch the mouse or keyboard, at any point,
   the way a TV's auto-off counts from your last button press: it started
   because nobody seemed to be there. Open eyes in its final minute stop it too,
-  and the night watch goes back to looking every 10 minutes.
-- Never runs the camera outside bedtime, never asks for camera access at night,
+  and the night watch goes back to looking every 5 minutes.
+- The final minute's warning shows on every display, so a film on a TV shows
+  it too.
+- **Watch Now for a Nap** in the panel runs it outside bedtime, until the Mac
+  or its display goes to sleep.
+- Never runs the camera outside bedtime or a nap, never asks for camera access at night,
   and analyzes frames on this Mac with Apple's Vision framework; nothing is
   recorded or sent anywhere.
 - Work keeps going: when `caffeinate`, a download, a build, or an agent holds
@@ -117,11 +129,16 @@ During those hours, once you stop using the Mac:
 
 - Nothing playing, nobody at the keyboard: after 20 minutes a 15-minute timer
   starts. The camera stays off: with nothing playing, nobody is watching.
-- Something playing: after 10 minutes the camera looks. Closed eyes or nobody
-  there start a 15-minute timer; open eyes mean you are watching, and it looks
-  again in 10 minutes. If the picture stays unclear (dim light, a face turned
-  away), or there is no camera, it asks after two hours whether you are still
-  watching.
+- Something playing: after 5 minutes the camera looks. Closed eyes start a
+  5-minute timer, whose final minute looks once more; so does nobody there,
+  once the camera has seen you in this stretch. Open eyes mean you are
+  watching, and it looks again in 5 minutes. If the picture stays unclear
+  (too dark, a face turned away, nobody ever seen), or there is no camera, it
+  asks after two hours whether you are still watching.
+- Only sound playing, and you chose to keep it: nothing happens; the display
+  turns off by itself and the sound plays on.
+- Something starts playing during the quiet Mac's timer: the timer stops and
+  the camera decides instead.
 - After three hours without input it asks anyway: some people sleep with their
   eyes partly open.
 - It acts once per stretch of not using the Mac, and starts over when you are
@@ -129,6 +146,10 @@ During those hours, once you stop using the Mac:
   at any time, or open eyes in the final minute of a timer the camera started.
   A quiet Mac's timer and the three-hour question never use the camera at the
   end, so only you can stop them.
+
+For a nap outside those hours, click **Watch Now for a Nap** in the panel. The
+night watch then works as at night until the Mac or its display goes to sleep;
+**End Nap** stops it sooner.
 
 ### Timer
 
@@ -155,7 +176,9 @@ hidden).
 - **Night watch**: on or off, bedtime (any start and end time), and **Use the
   camera**. **Camera
   preview > Show** turns the camera on to check that it sees your face; it goes
-  off again with **Hide** or when Settings closes.
+  off again with **Hide** or when Settings closes. Check it sitting or lying
+  where you usually watch from. **When only sound plays**: stop it once you are asleep, or keep
+  it playing.
 - **Startup**: launch at login.
 - **Updates**: current version, automatic daily checks on or off, and a **Check
   for Updates…** button.

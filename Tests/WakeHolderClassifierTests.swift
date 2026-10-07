@@ -29,10 +29,10 @@ final class WakeHolderClassifierTests: XCTestCase {
         let quickTime = holder(7843, "QuickTime Player", "PreventUserIdleDisplaySleep",
                                "/System/Applications/QuickTime Player.app/Contents/MacOS/QuickTime Player")
         // Under /System, but an app: its display assertion is a video someone may watch.
-        XCTAssertEqual(classify([quickTime]), WakeHolders(mediaPlaying: true, work: []))
+        XCTAssertEqual(classify([quickTime]), WakeHolders(mediaPlaying: true, work: [], videoPlaying: true))
         let browser = holder(900, "Google Chrome", "PreventUserIdleDisplaySleep",
                              "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
-        XCTAssertEqual(classify([browser]), WakeHolders(mediaPlaying: true, work: []))
+        XCTAssertEqual(classify([browser]), WakeHolders(mediaPlaying: true, work: [], videoPlaying: true))
     }
 
     func testCaffeinateIsWorkNotMedia() {
@@ -52,6 +52,16 @@ final class WakeHolderClassifierTests: XCTestCase {
         let spotify = holder(500, "Spotify", "PreventUserIdleSystemSleep", "/Applications/Spotify.app/Contents/MacOS/Spotify")
         let coreaudiod = holder(536, "coreaudiod", "PreventUserIdleSystemSleep", "/usr/sbin/coreaudiod")
         XCTAssertEqual(classify([spotify, coreaudiod], audio: [500]), WakeHolders(mediaPlaying: true, work: []))
+        XCTAssertTrue(classify([spotify, coreaudiod], audio: [500]).soundOnly)
+    }
+
+    func testABrowserPlayingAFilmIsNotSoundOnly() {
+        // Holding the system as well as the display, and playing audio.
+        let chrome = [
+            holder(900, "Google Chrome", "PreventUserIdleDisplaySleep", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+            holder(900, "Google Chrome", "PreventUserIdleSystemSleep", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+        ]
+        XCTAssertFalse(classify(chrome, audio: [900]).soundOnly)
     }
 
     func testBefore142TheDeviceAnswersForAudio() {

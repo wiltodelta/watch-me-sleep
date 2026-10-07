@@ -119,6 +119,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Sparkle's daily checks (Updater).
         Updater.shared.start()
+
+        askSoundChoiceOnce()
+    }
+
+    /// Whether sound alone (white noise, an audiobook) should stop once the
+    /// person is asleep is theirs to say, and before the first night: asked
+    /// once, then kept and changeable in Settings and the panel.
+    private func askSoundChoiceOnce() {
+        guard supervisor.isEnabled, !supervisor.soundChoiceAsked else { return }
+        supervisor.soundChoiceAsked = true
+
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate()
+        let alert = NSAlert()
+        alert.messageText = "When only sound is playing at bedtime"
+        alert.informativeText = "A podcast, an audiobook or white noise, with no video. Once you fall asleep, "
+            + "should the Mac go to sleep and stop it, or keep it playing? You can change this in Settings."
+        alert.addButton(withTitle: "Stop It Once I'm Asleep")
+        alert.addButton(withTitle: "Keep It Playing")
+        supervisor.keepsSoundPlaying = alert.runModal() == .alertSecondButtonReturn
+        NSApp.setActivationPolicy(.accessory)
     }
 
     private func updateSleepWarning() {

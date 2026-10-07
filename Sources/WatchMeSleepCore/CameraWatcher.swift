@@ -173,7 +173,34 @@ public final class CameraWatcher: NSObject, ObservableObject {
                                    detector: blinkDetector, deciding: presenceCheck != nil)
 
         setFaceDetected(eyes != nil)
-        recordPresence(eyes: eyes, at: CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer)))
+        let time = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer))
+        // Brightness matters only to a running look, and only where no face was found.
+        recordPresence(eyes: eyes, at: time, dark: eyes == nil && presenceCheck != nil && Self.isDark(pixelBuffer))
+    }
+
+    /// Mean luma below this, on 0...1, is too dark to find a face in: nearly
+    /// black, a dark room or a covered lens. Not measured against real nights
+    /// yet; kept low so a sleeper lit by the screen still counts as a picture.
+    static let darkLuma = 0.04
+
+    /// Samples the luma plane of a full-range 4:2:0 frame on a coarse grid.
+    static func isDark(_ pixelBuffer: CVPixelBuffer) -> Bool {
+        CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0) else { return false }
+        let width = CVPixelBufferGetWidthOfPlane(pixelBuffer, 0)
+        let height = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0)
+        let rowBytes = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0)
+        let luma = base.assumingMemoryBound(to: UInt8.self)
+        var sum = 0, count = 0
+        for row in stride(from: 0, to: height, by: 8) {
+            for column in stride(from: 0, to: width, by: 8) {
+                sum += Int(luma[row * rowBytes + column])
+                count += 1
+            }
+        }
+        guard count > 0 else { return false }
+        return Double(sum) / Double(count) / 255 < darkLuma
     }
 
     private func publishAspectRatio(of pixelBuffer: CVPixelBuffer) {

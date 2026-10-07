@@ -38,23 +38,56 @@ struct NightWatchStatusView: View {
                     .controlSize(.large)
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("turnOnNightWatch")
+            } else if canWatchNow {
+                // Secondary: Start Timer below stays the panel's default action.
+                Button("Watch Now for a Nap") { supervisor.watchNow() }
+                    .controlSize(.large)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("watchNow")
             } else {
                 HStack(spacing: 14) {
-                    Label(supervisor.bedtimeRangeText, systemImage: "bed.double")
+                    Label(supervisor.isWatchingNow ? "Nap until the Mac sleeps" : supervisor.bedtimeRangeText,
+                          systemImage: supervisor.isWatchingNow ? "moon.zzz" : "bed.double")
                     if supervisor.cameraUsable {
                         Label("Camera on", systemImage: "video")
+                    }
+                    if supervisor.isWatchingNow {
+                        Spacer(minLength: 0)
+                        Button("End Nap") { supervisor.stopWatchingNow() }
+                            .controlSize(.small)
+                            .accessibilityIdentifier("endNap")
                     }
                 }
                 .font(.caption)
                 .foregroundStyle(Color.panelSecondary)
+                // The sound choice where it matters: while only sound plays.
+                if supervisor.isSoundOnlyPlaying {
+                    HStack {
+                        Text("Keep sound playing when I fall asleep")
+                            .font(.callout)
+                            .accessibilityHidden(true) // The switch says it.
+                        Spacer(minLength: 8)
+                        Toggle("Keep sound playing when I fall asleep", isOn: $supervisor.keepsSoundPlaying)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .accessibilityIdentifier("keepSoundPlaying")
+                    }
+                }
             }
         }
+    }
+
+    /// Outside bedtime, the night watch can still be asked to watch now.
+    private var canWatchNow: Bool {
+        supervisor.status == .outsideHours || supervisor.status == .noBedtime
     }
 
     private var icon: String {
         switch supervisor.status {
         case .off, .noBedtime: return "moon"
         case .looking: return "eye"
+        case .keepingSound: return "speaker.wave.2"
         case .watching(_, let mediaPlaying, _): return mediaPlaying ? "play.tv" : "moon.stars"
         default: return "moon.stars"
         }
@@ -65,7 +98,7 @@ struct NightWatchStatusView: View {
         case .off:
             return "Sleeps the Mac once you fall asleep in front of a film or music."
         case .outsideHours:
-            return "Until then, set a timer below."
+            return "Going for a nap? It can watch now."
         case .inUse:
             return "It steps in once you stop using your Mac."
         case .timerRunning:
@@ -85,6 +118,8 @@ struct NightWatchStatusView: View {
             return "The Mac sleeps by itself once the work finishes."
         case .noBedtime:
             return "It starts and ends at the same time. Change it in Settings."
+        case .keepingSound:
+            return "Only sound is playing, so the Mac stays awake for it. The display turns off by itself."
         }
     }
 }
@@ -112,7 +147,7 @@ struct CameraPreviewRow: View {
                     Text(statusTitle)
                 }
                 .font(.callout.weight(.medium))
-                Text("Sit where you usually watch from. The light of the screen is enough.")
+                Text("Sit or lie where you usually watch from. The light of the screen is enough.")
                     .font(.caption)
                     .foregroundStyle(Color.panelSecondary)
                     .fixedSize(horizontal: false, vertical: true)

@@ -11,12 +11,14 @@ struct PresenceCheck {
     enum Verdict: Equatable {
         /// Eyes stayed closed long enough to count as sleep.
         case asleep
-        /// No face for almost the whole look: nobody there, or too dark to see.
+        /// No face for almost the whole look in a lit frame: nobody there, or
+        /// someone turned away.
         case absent
         /// Eyes open.
         case awake
         /// A face, but too little of it to tell (seen only briefly, closed eyes
-        /// broken up by a lost face): not to be taken for either.
+        /// broken up by a lost face), or frames too dark to find one: not to be
+        /// taken for either.
         case unclear
         /// The camera could not be used (no access, no frames).
         case unavailable
@@ -49,6 +51,8 @@ struct PresenceCheck {
     private var lastFrame: TimeInterval?
     private var elapsed: TimeInterval = 0
     private var faceSeconds: TimeInterval = 0
+    /// Time with neither a face nor light enough to find one.
+    private var darkSeconds: TimeInterval = 0
     private var openSeconds: TimeInterval = 0
     private var closedRun: TimeInterval = 0
     private var missedRun: TimeInterval = 0
@@ -65,7 +69,8 @@ struct PresenceCheck {
 
     /// One frame at `time` (seconds, any steady clock): what the eyes show, or
     /// nil when no face was found. Returns the verdict once there is one.
-    mutating func record(eyes: EyeReading?, at time: TimeInterval) -> Verdict? {
+    /// - Parameter dark: the frame is too dark to find a face in.
+    mutating func record(eyes: EyeReading?, at time: TimeInterval, dark: Bool = false) -> Verdict? {
         // A frame stands for the time since the one before it.
         let span = lastFrame.map { min(max(time - $0, 0), Self.maxFrameGap) } ?? 0
         lastFrame = time
@@ -88,6 +93,7 @@ struct PresenceCheck {
                 if reached(openSeconds, openSecondsForAwake) { return .awake }
             }
         } else {
+            if dark { darkSeconds += span }
             missedRun += span
             if reached(missedRun, missedSecondsTolerated) {
                 closedRun = 0
@@ -104,7 +110,10 @@ struct PresenceCheck {
     /// The verdict for a look cut short, or one that ran its full length.
     var finalVerdict: Verdict {
         guard frames > 0 else { return .unavailable }
-        return faceSeconds <= elapsed * absentFaceShare ? .absent : .unclear
+        guard faceSeconds <= elapsed * absentFaceShare else { return .unclear }
+        // Mostly black frames (a dark room, a covered lens) cannot tell an
+        // empty bed from a sleeper: unclear, not nobody there.
+        return darkSeconds > elapsed / 2 ? .unclear : .absent
     }
 }
 
@@ -144,8 +153,8 @@ extension CameraWatcher {
     }
 
     /// One frame into the running look, if there is one. Runs on the video queue.
-    func recordPresence(eyes: EyeReading?, at time: TimeInterval) {
-        guard let verdict = presenceCheck?.record(eyes: eyes, at: time) else { return }
+    func recordPresence(eyes: EyeReading?, at time: TimeInterval, dark: Bool) {
+        guard let verdict = presenceCheck?.record(eyes: eyes, at: time, dark: dark) else { return }
         finishPresenceCheck(verdict)
     }
 

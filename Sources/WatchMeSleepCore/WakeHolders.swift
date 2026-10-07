@@ -14,6 +14,11 @@ public struct WakeHolders: Equatable {
     /// build, an agent). Sleeping the Mac would cut them off, so the night watch
     /// only turns the display off while any is present.
     public var work: [String]
+    /// An app holds the display on, as a video player does.
+    public var videoPlaying = false
+
+    /// Sound with no video: a podcast, an audiobook, white noise.
+    public var soundOnly: Bool { mediaPlaying && !videoPlaying }
 
     public static let none = WakeHolders(mediaPlaying: false, work: [])
 }
@@ -70,7 +75,11 @@ enum WakeHolderClassifier {
         let work = personal
             .filter { workPIDs.contains($0.pid) }
             .map(\.processName)
-        return WakeHolders(mediaPlaying: mediaPlaying, work: Array(Set(work)).sorted())
+        // While media plays, any display hold counts as video, also from an app
+        // that holds the system too: sound-only must never take a film for a
+        // podcast. Without media it is `caffeinate -d`, not a video.
+        return WakeHolders(mediaPlaying: mediaPlaying, work: Array(Set(work)).sorted(),
+                           videoPlaying: mediaPlaying && !holdsDisplay.isEmpty)
     }
 }
 

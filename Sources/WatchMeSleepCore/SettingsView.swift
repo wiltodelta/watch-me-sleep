@@ -68,6 +68,11 @@ public struct SettingsView: View {
                         CameraPreviewRow()
                     }
                 }
+                Picker("When only sound plays", selection: $supervisor.keepsSoundPlaying) {
+                    Text("Stop it once I'm asleep").tag(false)
+                    Text("Keep it playing").tag(true)
+                }
+                .accessibilityIdentifier("soundChoice")
             }
         } header: {
             Text("Night watch")

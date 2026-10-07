@@ -109,4 +109,13 @@ final class PresenceCheckTests: XCTestCase {
     func testNoFramesAtAllIsUnavailable() {
         XCTAssertEqual(PresenceCheck().finalVerdict, .unavailable)
     }
+
+    func testDarkFramesWithoutAFaceAreUnclearNotAbsent() {
+        var check = PresenceCheck()
+        var verdict: PresenceCheck.Verdict?
+        for index in 0..<400 where verdict == nil {
+            verdict = check.record(eyes: nil, at: Double(index) / 10, dark: true)
+        }
+        XCTAssertEqual(verdict, .unclear, "A black frame cannot tell an empty bed from a sleeper")
+    }
 }

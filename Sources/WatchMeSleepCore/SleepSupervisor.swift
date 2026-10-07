@@ -1,71 +1,7 @@
+import AppKit
 import Combine
 import Foundation
 import os
-
-/// What the night watch decides from one look at the signals. Pure and
-/// side-effect free, so every rule is unit-tested without clocks or cameras.
-///
-/// The question is never "is the Mac idle" (macOS sleeps an idle Mac by itself)
-/// but "is something keeping it awake that nobody is using any more".
-enum NightWatchPolicy {
-    /// Media playing and no input this long: the camera takes its first look.
-    static let firstLookIdle: TimeInterval = 10 * 60
-    /// Wait before looking again after open eyes or an unclear picture.
-    static let recheckInterval: TimeInterval = 10 * 60
-    /// Nothing playing and no input this long means nobody is there. No camera
-    /// here: with nothing playing, nobody is watching anything, and macOS would
-    /// dim the display about now anyway.
-    static let quietIdle: TimeInterval = 20 * 60
-    /// Without a camera: media playing and no input this long, ask "still
-    /// watching?". Long enough for a whole film; Netflix asks after 90 minutes,
-    /// but counts episodes.
-    static let stillWatchingIdle: TimeInterval = 2 * 60 * 60
-    /// Even with the camera seeing open eyes, ask after this long: some people
-    /// sleep with their eyes partly open, and the final minute spares anyone awake.
-    static let askAnywayIdle: TimeInterval = 3 * 60 * 60
-    /// Unclear looks in one idle stretch before the camera stops being trusted.
-    static let maxUnclearLooks = 2
-    /// Timer started once the camera (or a quiet Mac) says nobody is watching.
-    static let confirmedTimerHours = 0.25
-
-    enum Decision: Equatable {
-        case wait
-        case look
-        /// Start a 15-minute timer: asleep, gone, or nothing left playing.
-        case armConfirmed
-        /// Go straight to the final minute: "still watching?".
-        case askStillWatching
-    }
-
-    struct Input {
-        var idle: TimeInterval
-        var mediaPlaying: Bool
-        var cameraUsable: Bool
-        var unclearLooks: Int
-        /// The recheck interval since the last look has passed.
-        var lookDue: Bool
-
-        /// The camera can answer: usable, and not unclear too often this stretch.
-        var cameraTrusted: Bool { cameraUsable && unclearLooks < maxUnclearLooks }
-
-        /// The camera answers only the one unclear case: something plays and
-        /// nobody touches the Mac. Watching, or asleep in front of it?
-        var cameraDecides: Bool { mediaPlaying && cameraTrusted }
-    }
-
-    static func decide(_ input: Input) -> Decision {
-        if input.idle >= askAnywayIdle {
-            return .askStillWatching
-        }
-        if input.cameraDecides {
-            return input.idle >= firstLookIdle && input.lookDue ? .look : .wait
-        }
-        if !input.mediaPlaying {
-            return input.idle >= quietIdle ? .armConfirmed : .wait
-        }
-        return input.idle >= stillWatchingIdle ? .askStillWatching : .wait
-    }
-}
 
 /// What the night watch is doing, for the panel and the menu bar tooltip.
 public enum NightWatchStatus: Equatable {
@@ -80,6 +16,8 @@ public enum NightWatchStatus: Equatable {
     case done
     /// Bedtime starts and ends at the same time, so it never comes.
     case noBedtime
+    /// Only sound plays and the person chose to keep it playing.
+    case keepingSound
 }
 
 /// The one automatic mode: during bedtime hours it watches what keeps the Mac
@@ -99,8 +37,24 @@ public final class SleepSupervisor: ObservableObject {
     @Published public var bedtimeEnd: Int = 8 * 60 { didSet { persist() } }
     /// Look with the camera when it is unclear whether anyone is watching.
     @Published public var usesCamera: Bool = true { didSet { persist() } }
+    /// When only sound plays (a podcast, white noise), keep it playing through
+    /// the night instead of sleeping the Mac once the person is asleep. The
+    /// display still turns off by itself: sound holds only the system awake.
+    @Published public var keepsSoundPlaying = false { didSet { persist() } }
+    /// The sound choice was put to the person once (`AppDelegate`).
+    public var soundChoiceAsked: Bool {
+        get { defaults.bool(forKey: Key.soundChoiceAsked) }
+        set { defaults.set(newValue, forKey: Key.soundChoiceAsked) }
+    }
 
     @Published public private(set) var status: NightWatchStatus = .off
+    /// Watching outside bedtime because someone asked to, for a nap. Not
+    /// persisted: it ends when the Mac or its display sleeps, when bedtime
+    /// starts, or by hand.
+    @Published public private(set) var isWatchingNow = false
+    /// Sound with no video plays while the night watch watches, so the panel
+    /// offers the sound choice right there.
+    @Published public private(set) var isSoundOnlyPlaying = false
 
     // MARK: - Test seams
 
@@ -124,11 +78,21 @@ public final class SleepSupervisor: ObservableObject {
         var unclearLooks = 0
         /// Already acted in this stretch.
         var acted = false
+        /// The camera has seen a face in this stretch, so a later look that
+        /// finds none means the person left or turned away to sleep. Until
+        /// then the camera may just not cover them (a TV, a far laptop).
+        var faceSeen = false
     }
 
     var stretch = Stretch()
     /// A camera look is running, for a decision or for a final minute.
     var isLooking = false
+    /// When the running decision look started: input after it outdates its answer.
+    private var lookStarted: Date = .distantPast
+    /// What keeps the Mac awake, read once per poll while watching.
+    private var holders = WakeHolders.none
+    /// The running timer is the quiet Mac's, which media starting overrules.
+    private var quietTimerArmed = false
 
     /// Input more recent than this counts as someone using the Mac.
     static let inUseIdle: TimeInterval = 30
@@ -146,11 +110,33 @@ public final class SleepSupervisor: ObservableObject {
         static let legacyStartHour = "AutoActivation.afterHour"
         static let legacyEndHour = "AutoActivation.untilHour"
         static let usesCamera = "AutoActivation.checksWithCamera"
+        static let keepsSoundPlaying = "NightWatch.keepsSoundPlaying"
+        static let soundChoiceAsked = "NightWatch.soundChoiceAsked"
     }
 
     private init() {
         load()
         isLoaded = true
+        // The nap is over once the Mac or its display has gone to sleep,
+        // whoever put it there.
+        let center = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.willSleepNotification, NSWorkspace.screensDidSleepNotification] {
+            center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                self?.stopWatchingNow()
+            }
+        }
+    }
+
+    /// Watch now, outside bedtime: a nap.
+    public func watchNow() {
+        isWatchingNow = true
+        refreshStatus()
+    }
+
+    public func stopWatchingNow() {
+        guard isWatchingNow else { return }
+        isWatchingNow = false
+        refreshStatus()
     }
 
     // MARK: - Monitoring
@@ -165,6 +151,7 @@ public final class SleepSupervisor: ObservableObject {
         pollTimer?.invalidate()
         pollTimer = nil
         guard isEnabled else {
+            isWatchingNow = false
             status = .off
             return
         }
@@ -213,19 +200,35 @@ public final class SleepSupervisor: ObservableObject {
             stretch = Stretch()
         }
         guard isEnabled else { return .off }
-        if timer.isTimerActive { return .timerRunning }
-        if bedtimeMinutes == 0 { return .noBedtime }
-        guard isWithinWindow(now()) else { return .outsideHours }
+        let inWindow = bedtimeMinutes > 0 && isWithinWindow(now())
+        if inWindow {
+            isWatchingNow = false // Bedtime takes over the nap.
+        }
+        let watching = inWindow || isWatchingNow
+        holders = watching ? wakeHolders() : .none
+        if isSoundOnlyPlaying != holders.soundOnly { isSoundOnlyPlaying = holders.soundOnly }
+        if timer.isTimerActive, !overruleQuietTimer(watching: watching) { return .timerRunning }
+        if !watching { return bedtimeMinutes == 0 ? .noBedtime : .outsideHours }
         if inUse { return .inUse }
         if stretch.acted { return .done }
         if isLooking { return .looking }
+        if keepsSoundPlaying, holders.soundOnly { return .keepingSound }
         return nil
+    }
+
+    /// The quiet Mac's timer assumed nothing plays; once something does, it
+    /// stops and the night watch watches that instead. True when it stopped.
+    private func overruleQuietTimer(watching: Bool) -> Bool {
+        guard watching, quietTimerArmed, timer.stopsOnInput, holders.mediaPlaying else { return false }
+        log.info("Media started during the quiet timer; watching it instead")
+        timer.stopTimer()
+        stretch.acted = false
+        return true
     }
 
     /// - Parameter statusOnly: say what the night watch sees without doing
     ///   anything about it (no look, no timer) until the next poll.
     private func act(idle: TimeInterval, statusOnly: Bool = false) {
-        let holders = wakeHolders()
         let input = NightWatchPolicy.Input(
             idle: idle,
             mediaPlaying: holders.mediaPlaying,
@@ -249,10 +252,10 @@ public final class SleepSupervisor: ObservableObject {
             break
         case .look:
             look()
-        case .armConfirmed:
-            arm(hours: NightWatchPolicy.confirmedTimerHours, reason: "nobody watching")
+        case .armQuietTimer:
+            arm(for: NightWatchPolicy.quietTimer, reason: "nobody watching", quiet: true)
         case .askStillWatching:
-            arm(hours: TimerManager.finalPhaseDuration / 3600, reason: "still watching?")
+            arm(for: TimerManager.finalPhaseDuration, reason: "still watching?")
         }
     }
 
@@ -267,6 +270,7 @@ public final class SleepSupervisor: ObservableObject {
 
     private func look() {
         isLooking = true
+        lookStarted = now()
         setStatus(.looking)
         checkPresence { [weak self] verdict in
             self?.handle(verdict)
@@ -276,13 +280,22 @@ public final class SleepSupervisor: ObservableObject {
     private func handle(_ verdict: PresenceCheck.Verdict) {
         isLooking = false
         log.info("Camera look: \(String(describing: verdict), privacy: .public)")
-        // The person may have come back, or started a timer, while the camera looked.
-        guard idleSecondsProvider() >= Self.inUseIdle, !timer.isTimerActive else { return }
+        // Any input since the look began outdates its answer, as does a timer
+        // started meanwhile.
+        let sinceLook = now().timeIntervalSince(lookStarted)
+        guard idleSecondsProvider() >= max(Self.inUseIdle, sinceLook), !timer.isTimerActive else { return }
 
+        // Only eyes read open or closed prove a face: unclear also covers a
+        // look that saw nothing but darkness.
+        if verdict == .asleep || verdict == .awake {
+            stretch.faceSeen = true
+        }
+        // Never seen in this stretch: the camera may not cover the viewer.
+        let verdict = verdict == .absent && !stretch.faceSeen ? .unclear : verdict
         let recheck = recheckDate
         switch verdict {
         case .asleep, .absent:
-            arm(hours: NightWatchPolicy.confirmedTimerHours, reason: "camera: \(verdict)", looksAgain: true)
+            arm(for: NightWatchPolicy.cameraTimer, reason: "camera: \(verdict)", looksAgain: true)
         case .awake:
             stretch.nextLook = recheck
         case .unclear:
@@ -294,22 +307,24 @@ public final class SleepSupervisor: ObservableObject {
         tick()
     }
 
-    /// - Parameter looksAgain: the camera started this timer, so it looks once
-    ///   more in the final minute. Not for a quiet Mac, which never turns the
-    ///   camera on, and not for "still watching?", which asks because open eyes
-    ///   cannot be trusted that late.
     /// When to look again after open eyes or an unclear picture.
     private var recheckDate: Date {
         now().addingTimeInterval(NightWatchPolicy.recheckInterval)
     }
 
-    private func arm(hours: Double, reason: String, looksAgain: Bool = false) {
-        log.info("Starting a \(hours * 60, privacy: .public)-minute timer: \(reason, privacy: .public)")
+    /// - Parameter looksAgain: the camera started this timer, so it looks once
+    ///   more in the final minute. Not for a quiet Mac, which never turns the
+    ///   camera on, and not for "still watching?", which asks because open eyes
+    ///   cannot be trusted that late.
+    /// - Parameter quiet: the quiet Mac's timer, which media starting overrules.
+    private func arm(for duration: TimeInterval, reason: String, looksAgain: Bool = false, quiet: Bool = false) {
+        log.info("Starting a \(duration / 60, privacy: .public)-minute timer: \(reason, privacy: .public)")
         stretch.acted = true
+        quietTimerArmed = quiet
         let check: TimerManager.FinalPhaseCheck? = looksAgain
             ? { [weak self] someoneThere in self?.lookInFinalPhase(someoneThere: someoneThere) }
             : nil
-        timer.startTimer(hours: hours, stopsOnInput: true, finalPhaseCheck: check)
+        timer.startTimer(hours: duration / 3600, stopsOnInput: true, finalPhaseCheck: check)
         setStatus(.timerRunning)
     }
 
@@ -361,6 +376,7 @@ public final class SleepSupervisor: ObservableObject {
         case .looking: return "Looking with the camera"
         case .done: return "Display off, work still running"
         case .noBedtime: return "Bedtime has no length"
+        case .keepingSound: return "Sound keeps playing"
         }
     }
 
@@ -396,6 +412,7 @@ public final class SleepSupervisor: ObservableObject {
         if defaults.object(forKey: Key.usesCamera) != nil {
             usesCamera = defaults.bool(forKey: Key.usesCamera)
         }
+        keepsSoundPlaying = defaults.bool(forKey: Key.keepsSoundPlaying)
     }
 
     private func persist() {
@@ -404,6 +421,7 @@ public final class SleepSupervisor: ObservableObject {
         defaults.set(bedtimeStart, forKey: Key.bedtimeStart)
         defaults.set(bedtimeEnd, forKey: Key.bedtimeEnd)
         defaults.set(usesCamera, forKey: Key.usesCamera)
+        defaults.set(keepsSoundPlaying, forKey: Key.keepsSoundPlaying)
     }
 
     private func settingsChanged() {

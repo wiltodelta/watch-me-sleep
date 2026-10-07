@@ -9,13 +9,38 @@ import SwiftUI
 /// The panel never becomes key, so a video player keeps its keyboard (Space
 /// still pauses) while the buttons stay clickable.
 public final class SleepWarningController {
-    private let panel: NSPanel
+    /// One panel per display: a film may be on a TV while the Mac sits aside.
+    private var panels: [NSPanel] = []
     private let width: CGFloat = 320
     /// Gap from the top-right corner of the visible screen, in points.
     private let screenEdgeInset: CGFloat = 12
 
-    public init() {
-        panel = NSPanel(
+    public init() {}
+
+    /// Show a panel in the corner of every display, pinned there as its height
+    /// follows the text.
+    public func show() {
+        let screens = NSScreen.screens
+        if panels.count != screens.count {
+            close()
+            panels = screens.map { _ in makePanel() }
+        }
+        for (panel, screen) in zip(panels, screens) {
+            let visibleFrame = screen.visibleFrame
+            panel.setFrameTopLeftPoint(NSPoint(
+                x: visibleFrame.maxX - panel.frame.width - screenEdgeInset,
+                y: visibleFrame.maxY - screenEdgeInset
+            ))
+            if !panel.isVisible { panel.orderFrontRegardless() }
+        }
+    }
+
+    public func close() {
+        panels.forEach { $0.orderOut(nil) }
+    }
+
+    private func makePanel() -> NSPanel {
+        let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: width, height: 120),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
@@ -25,21 +50,7 @@ public final class SleepWarningController {
         panel.becomesKeyOnlyIfNeeded = true
         panel.collectionBehavior.formUnion([.stationary, .ignoresCycle])
         panel.contentViewController = PanelHostController(rootView: SleepWarningView(), width: width)
-    }
-
-    /// Show the panel, keeping it pinned to the corner as its height follows the text.
-    public func show() {
-        if let visibleFrame = NSScreen.main?.visibleFrame {
-            panel.setFrameTopLeftPoint(NSPoint(
-                x: visibleFrame.maxX - panel.frame.width - screenEdgeInset,
-                y: visibleFrame.maxY - screenEdgeInset
-            ))
-        }
-        if !panel.isVisible { panel.orderFrontRegardless() }
-    }
-
-    public func close() {
-        panel.orderOut(nil)
+        return panel
     }
 }
 
