@@ -16,8 +16,10 @@ enum NightWatchPolicy {
     /// here: with nothing playing, nobody is watching anything, and macOS would
     /// dim the display about now anyway.
     static let quietIdle: TimeInterval = 20 * 60
-    /// Without a camera: media playing and no input this long, ask "still watching?".
-    static let stillWatchingIdle: TimeInterval = 90 * 60
+    /// Without a camera: media playing and no input this long, ask "still
+    /// watching?". Long enough for a whole film; Netflix asks after 90 minutes,
+    /// but counts episodes.
+    static let stillWatchingIdle: TimeInterval = 2 * 60 * 60
     /// Even with the camera seeing open eyes, ask after this long: some people
     /// sleep with their eyes partly open, and the final minute spares anyone awake.
     static let askAnywayIdle: TimeInterval = 3 * 60 * 60
@@ -277,10 +279,10 @@ public final class SleepSupervisor: ObservableObject {
         // The person may have come back, or started a timer, while the camera looked.
         guard idleSecondsProvider() >= Self.inUseIdle, !timer.isTimerActive else { return }
 
-        let recheck = now().addingTimeInterval(NightWatchPolicy.recheckInterval)
+        let recheck = recheckDate
         switch verdict {
         case .asleep, .absent:
-            arm(hours: NightWatchPolicy.confirmedTimerHours, reason: "camera: \(verdict)")
+            arm(hours: NightWatchPolicy.confirmedTimerHours, reason: "camera: \(verdict)", looksAgain: true)
         case .awake:
             stretch.nextLook = recheck
         case .unclear:
@@ -292,12 +294,22 @@ public final class SleepSupervisor: ObservableObject {
         tick()
     }
 
-    private func arm(hours: Double, reason: String) {
+    /// - Parameter looksAgain: the camera started this timer, so it looks once
+    ///   more in the final minute. Not for a quiet Mac, which never turns the
+    ///   camera on, and not for "still watching?", which asks because open eyes
+    ///   cannot be trusted that late.
+    /// When to look again after open eyes or an unclear picture.
+    private var recheckDate: Date {
+        now().addingTimeInterval(NightWatchPolicy.recheckInterval)
+    }
+
+    private func arm(hours: Double, reason: String, looksAgain: Bool = false) {
         log.info("Starting a \(hours * 60, privacy: .public)-minute timer: \(reason, privacy: .public)")
         stretch.acted = true
-        timer.startTimer(hours: hours) { [weak self] someoneThere in
-            self?.lookInFinalPhase(someoneThere: someoneThere)
-        }
+        let check: TimerManager.FinalPhaseCheck? = looksAgain
+            ? { [weak self] someoneThere in self?.lookInFinalPhase(someoneThere: someoneThere) }
+            : nil
+        timer.startTimer(hours: hours, stopsOnInput: true, finalPhaseCheck: check)
         setStatus(.timerRunning)
     }
 
@@ -307,10 +319,16 @@ public final class SleepSupervisor: ObservableObject {
         guard !isLooking, cameraUsable else { return }
         isLooking = true
         checkPresence { [weak self] verdict in
-            self?.isLooking = false
+            guard let self else { return }
+            self.isLooking = false
             guard verdict == .awake else { return }
-            self?.log.info("Open eyes in the final minute; keeping the Mac awake")
+            self.log.info("Open eyes in the final minute; stopping the timer")
+            let wasRunning = self.timer.isTimerActive
             someoneThere()
+            guard wasRunning, !self.timer.isTimerActive else { return }
+            // Still watching: back to looking every so often, as after any open eyes.
+            self.stretch.acted = false
+            self.stretch.nextLook = self.recheckDate
         }
     }
 

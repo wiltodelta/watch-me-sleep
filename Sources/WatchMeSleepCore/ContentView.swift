@@ -4,13 +4,15 @@ import AppKit
 public struct ContentView: View {
     @StateObject private var timerManager = TimerManager.shared
     @ObservedObject private var supervisor = SleepSupervisor.shared
-    @State private var selectedHours: Double = 1.5
+    /// The last length chosen, so the panel offers it again; two hours, about
+    /// a film, until then.
+    @AppStorage("Timer.selectedHours") private var selectedHours: Double = 2
 
     public init() {}
 
     public var body: some View {
         VStack(spacing: 0) {
-            NightWatchStatusView()
+            NightWatchStatusView(timerStopsOnInput: timerManager.stopsOnInput)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 18)
 

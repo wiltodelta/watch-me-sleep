@@ -11,7 +11,9 @@ public class TimerManager: ObservableObject {
     /// the status item's menu list the same ones (UX-11).
     public static let presetHours: [Double] = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6]
     /// How far the timer moves when someone is still using the Mac at zero.
-    public static let postponeMinutes = 15
+    /// Someone at the Mac when their own timer ends is unlikely to sleep
+    /// within 15 minutes; 30 halves the warnings.
+    public static let postponeMinutes = 30
     /// A deadline missed by this much passed while nothing ticked: the Mac was
     /// asleep. Well above the few seconds App Nap may delay a tick.
     static let overdueAfter: TimeInterval = 2 * 60
@@ -27,6 +29,10 @@ public class TimerManager: ObservableObject {
     /// Work holds the Mac awake, so zero will only turn the display off (UX-04):
     /// what the panel and the warning promise follows this, not "sleep".
     @Published public private(set) var endsWithDisplayOff: Bool = false
+    /// The night watch starts its timers because nobody seemed to use the
+    /// Mac, so anyone there stops them, the way a TV's auto-off counts from the
+    /// last interaction. A timer set by hand is an intent and keeps running.
+    @Published public private(set) var stopsOnInput = false
 
     private var timer: Timer?
     private var targetDate: Date?
@@ -81,9 +87,10 @@ public class TimerManager: ObservableObject {
         }
     }
 
-    public func startTimer(hours: Double, finalPhaseCheck: FinalPhaseCheck? = nil) {
+    public func startTimer(hours: Double, stopsOnInput: Bool = false, finalPhaseCheck: FinalPhaseCheck? = nil) {
         stopTimer()
         generation += 1
+        self.stopsOnInput = stopsOnInput
         refreshEndAction(force: true)
         self.finalPhaseCheck = finalPhaseCheck
 
@@ -113,6 +120,7 @@ public class TimerManager: ObservableObject {
         remainingTime = 0
         totalTime = 0
         targetDate = nil
+        stopsOnInput = false
         finalPhaseCheck = nil
         endFinalPhase()
         notifyTimerUpdated()
@@ -120,7 +128,13 @@ public class TimerManager: ObservableObject {
 
     /// Someone is still there during the final minute (input, or the final
     /// phase check): the volume comes back and zero postpones instead of sleeping.
+    /// The night watch's timer stops instead, at any time.
     func markUserActive() {
+        if stopsOnInput {
+            Logger.app("timer").info("Someone is at the Mac; stopping the night watch's timer")
+            stopTimer()
+            return
+        }
         guard isInFinalPhase, !isUserActive else { return }
         isUserActive = true
         volume.restore()
@@ -155,6 +169,12 @@ public class TimerManager: ObservableObject {
             // done, and sleeping now would put a just-woken Mac straight back.
             Logger.app("timer").info("Timer ran out during sleep; stopping it")
             stopTimer()
+            return
+        }
+
+        // Added time moves both, so this stays the start.
+        if stopsOnInput, userWasActive(since: targetDate.addingTimeInterval(-totalTime)) {
+            markUserActive()
             return
         }
 

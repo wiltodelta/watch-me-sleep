@@ -4,6 +4,9 @@ import AppKit
 /// The panel's first row: what the night watch is doing right now, in words.
 struct NightWatchStatusView: View {
     @ObservedObject private var supervisor = SleepSupervisor.shared
+    /// Passed in by the panel, which observes the timer anyway: observing it
+    /// here would redraw this row on every second's tick.
+    var timerStopsOnInput = false
 
     var body: some View {
         let isOff = supervisor.status == .off
@@ -66,7 +69,9 @@ struct NightWatchStatusView: View {
         case .inUse:
             return "It steps in once you stop using your Mac."
         case .timerRunning:
-            return "A minute before the end you can keep the Mac awake."
+            return timerStopsOnInput
+                ? "It stops once you use your Mac."
+                : "A minute before the end you can keep the Mac awake."
         case let .watching(idleMinutes, _, nextLook):
             // Never "0 min" (UX-07): under a minute says so.
             let idle = idleMinutes < 1

@@ -66,25 +66,35 @@ struct SleepWarningView: View {
             }
             .accessibilityElement(children: .combine)
 
-            HStack(spacing: 8) {
-                Spacer()
-                Button(postponeText) {
-                    timerManager.addTime(minutes: TimerManager.postponeMinutes)
-                }
-                // The panel's "+15m", written and named the same way (UX-08, UX-15).
-                .durationAccessibility(visible: postponeText,
-                                       spoken: "Add " + DurationFormat.words(minutes: TimerManager.postponeMinutes))
-                .accessibilityIdentifier("postponeSleep")
-
-                Button("Sleep Now") {
-                    timerManager.sleepNow()
-                }
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("sleepNow")
+            // The night watch's timer stops at the first touch of the mouse, so
+            // its buttons could never be reached: it says how to stop it instead.
+            if !timerManager.stopsOnInput {
+                buttons
             }
-            .controlSize(.regular)
         }
+        // Without the buttons nothing else spans the width; keep the text at the leading edge.
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
+    }
+
+    private var buttons: some View {
+        HStack(spacing: 8) {
+            Spacer()
+            Button(postponeText) {
+                timerManager.addTime(minutes: TimerManager.postponeMinutes)
+            }
+            // The panel's matching add-time button, written and named the same way (UX-08, UX-15).
+            .durationAccessibility(visible: postponeText,
+                                   spoken: "Add " + DurationFormat.words(minutes: TimerManager.postponeMinutes))
+            .accessibilityIdentifier("postponeSleep")
+
+            Button("Sleep Now") {
+                timerManager.sleepNow()
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("sleepNow")
+        }
+        .controlSize(.regular)
     }
 
     private var seconds: Int {
@@ -107,6 +117,9 @@ struct SleepWarningView: View {
         if timerManager.isUserActive {
             return "You are using your Mac, so it stays awake for another "
                 + "\(DurationFormat.words(minutes: TimerManager.postponeMinutes))."
+        }
+        if timerManager.stopsOnInput {
+            return "Touch the mouse or keyboard to stop the timer."
         }
         return "Use the mouse or keyboard to keep it awake."
     }

@@ -32,14 +32,14 @@ final class NightWatchPolicyTests: XCTestCase {
         XCTAssertEqual(decide(idleMinutes: 20, media: false, camera: false), .armConfirmed)
     }
 
-    func testWithoutCameraMediaAsksAfterNinetyMinutes() {
-        XCTAssertEqual(decide(idleMinutes: 89, camera: false), .wait)
-        XCTAssertEqual(decide(idleMinutes: 90, camera: false), .askStillWatching)
+    func testWithoutCameraMediaAsksAfterTwoHours() {
+        XCTAssertEqual(decide(idleMinutes: 119, camera: false), .wait)
+        XCTAssertEqual(decide(idleMinutes: 120, camera: false), .askStillWatching)
     }
 
     func testUnclearLooksFallBackToTheNoCameraRules() {
         XCTAssertEqual(decide(idleMinutes: 30, unclear: 2), .wait)
-        XCTAssertEqual(decide(idleMinutes: 90, unclear: 2), .askStillWatching)
+        XCTAssertEqual(decide(idleMinutes: 120, unclear: 2), .askStillWatching)
         XCTAssertEqual(decide(idleMinutes: 30, unclear: 1), .look)
     }
 
@@ -251,9 +251,9 @@ final class SleepSupervisorTests: XCTestCase {
         idleFor(minutes: 10)
         answer(.unavailable)
 
-        idleFor(minutes: 89)
+        idleFor(minutes: 119)
         XCTAssertFalse(timer.isTimerActive)
-        idleFor(minutes: 90)
+        idleFor(minutes: 120)
         XCTAssertEqual(timer.totalTime, TimerManager.finalPhaseDuration, accuracy: 1, "Straight to the final minute")
     }
 
@@ -283,16 +283,22 @@ final class SleepSupervisorTests: XCTestCase {
         idleFor(minutes: 10)
         answer(.asleep)
         clock = clock.addingTimeInterval(15 * 60 - 30)
+        idle += 15 * 60 - 30 // Nobody touched the Mac meanwhile.
         timer.tick()
         XCTAssertTrue(timer.isInFinalPhase)
 
         XCTAssertEqual(looks, 2, "Entering the final minute asks at once, not at the next poll")
         answer(.awake)
 
-        clock = clock.addingTimeInterval(30)
-        timer.tick()
-        XCTAssertFalse(slept, "Someone watching is not put to sleep")
-        XCTAssertTrue(timer.isTimerActive)
+        XCTAssertFalse(timer.isTimerActive, "Someone watching: the timer stops")
+        XCTAssertFalse(slept)
+
+        idleFor(minutes: 24)
+        XCTAssertEqual(looks, 2)
+        XCTAssertNotEqual(supervisor.status, .done, "Still watching over the film")
+        clock = clock.addingTimeInterval(10 * 60)
+        idleFor(minutes: 34)
+        XCTAssertEqual(looks, 3, "Looks again ten minutes later")
     }
 
     func testAManualTimerGetsNoFinalMinuteLook() {
@@ -303,5 +309,60 @@ final class SleepSupervisorTests: XCTestCase {
         idleFor(minutes: 60)
 
         XCTAssertEqual(looks, 0)
+    }
+
+    func testUsingTheMacStopsTheNightWatchTimer() {
+        idleFor(minutes: 10)
+        answer(.asleep)
+        XCTAssertTrue(timer.stopsOnInput)
+
+        clock = clock.addingTimeInterval(3 * 60)
+        idle = 2 // Mid-timer, long before the final minute.
+        timer.tick()
+        XCTAssertFalse(timer.isTimerActive, "It started because nobody seemed there")
+        supervisor.tick()
+        XCTAssertEqual(supervisor.status, .inUse)
+    }
+
+    func testInputBeforeTheNightWatchTimerDoesNotStopIt() {
+        idleFor(minutes: 10)
+        answer(.asleep)
+        clock = clock.addingTimeInterval(60)
+        idle = 11 * 60
+        timer.tick()
+        XCTAssertTrue(timer.isTimerActive)
+    }
+
+    func testUsingTheMacKeepsAManualTimer() {
+        timer.startTimer(hours: 1)
+        clock = clock.addingTimeInterval(60)
+        idle = 2
+        timer.tick()
+        XCTAssertTrue(timer.isTimerActive)
+    }
+
+    func testAQuietMacTimerGetsNoFinalMinuteLook() {
+        holders = .none
+        idleFor(minutes: 20)
+        XCTAssertTrue(timer.isTimerActive)
+        clock = clock.addingTimeInterval(15 * 60 - 30)
+        timer.tick()
+        XCTAssertTrue(timer.isInFinalPhase)
+        XCTAssertEqual(looks, 0, "A quiet Mac never turns the camera on")
+    }
+
+    func testStillWatchingAfterThreeHoursIsNotAnsweredByOpenEyes() {
+        // The camera keeps seeing open eyes, so the night watch asks anyway at
+        // three hours; open eyes cannot answer that question, only input can.
+        idleFor(minutes: 180)
+        XCTAssertEqual(timer.totalTime, TimerManager.finalPhaseDuration, accuracy: 1)
+        timer.tick()
+        XCTAssertTrue(timer.isInFinalPhase)
+        XCTAssertEqual(looks, 0)
+
+        clock = clock.addingTimeInterval(60)
+        idle = 181 * 60
+        timer.tick()
+        XCTAssertTrue(slept)
     }
 }

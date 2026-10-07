@@ -28,8 +28,12 @@ Night watch (on by default, during bedtime hours you choose):
   smile or glasses are not taken for sleep
   ([measurement](docs/eye-detection.md)).
 - Without the camera it still works: nothing playing and no input for 20
-  minutes starts the timer; something playing for 90 minutes without input
+  minutes starts the timer; something playing for two hours without input
   asks whether you are still watching.
+- Its timer stops the moment you touch the mouse or keyboard, at any point,
+  the way a TV's auto-off counts from your last button press: it started
+  because nobody seemed to be there. Open eyes in its final minute stop it too,
+  and the night watch goes back to looking every 10 minutes.
 - Never runs the camera outside bedtime, never asks for camera access at night,
   and analyzes frames on this Mac with Apple's Vision framework; nothing is
   recorded or sent anywhere.
@@ -52,14 +56,13 @@ Timer:
 
 Every timer, set by hand or by the night watch:
 
-- A gentle last minute: a small panel in the corner counts down with **+15m**
-  and **Sleep Now**, and the volume fades out. When work holds the Mac awake,
+- A gentle last minute: a small panel in the corner counts down and the volume
+  fades out; for a timer you set, it offers **+30m** and **Sleep Now**. When work holds the Mac awake,
   the panel and the countdown say the display turns off, not that it sleeps. It shows over full-screen video
   and does not take the keyboard from the player. The volume comes back when
   the Mac or its display wakes.
 - Never sleeps a Mac in use: touch the mouse or keyboard during that last
-  minute (or, for the night watch's timer, look at the camera) and the timer
-  moves on by 15 minutes instead.
+  minute of a timer you set and it moves on by 30 minutes instead.
 
 System:
 
@@ -117,22 +120,26 @@ During those hours, once you stop using the Mac:
 - Something playing: after 10 minutes the camera looks. Closed eyes or nobody
   there start a 15-minute timer; open eyes mean you are watching, and it looks
   again in 10 minutes. If the picture stays unclear (dim light, a face turned
-  away), or there is no camera, it asks after 90 minutes whether you are still
+  away), or there is no camera, it asks after two hours whether you are still
   watching.
 - After three hours without input it asks anyway: some people sleep with their
   eyes partly open.
 - It acts once per stretch of not using the Mac, and starts over when you are
-  back.
+  back. Its timer stops as soon as you are: a touch of the mouse or keyboard
+  at any time, or open eyes in the final minute of a timer the camera started.
+  A quiet Mac's timer and the three-hour question never use the camera at the
+  end, so only you can stop them.
 
 ### Timer
 
 1. Click the moon icon.
-2. Set a duration with the slider or a preset, then click **Start Timer**.
+2. Set a duration with the slider or a preset, then click **Start Timer**. The
+   panel offers two hours at first, then the length you chose last.
 3. The icon fills in while the timer runs. Click it again to see the remaining
    time, add time, or stop.
 4. A minute before the end, a panel in the top-right corner counts down and the
    volume fades. Leave it alone and the Mac sleeps; use the mouse or keyboard
-   and it stays awake another 15 minutes. A timer that ran out while the Mac
+   and it stays awake another 30 minutes. A timer that ran out while the Mac
    was already asleep (lid closed) is dropped on wake.
 
 Right-click the icon for a quick menu that shows what the night watch is doing,

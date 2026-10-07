@@ -166,7 +166,9 @@ helper() { "$WORK/helper" "$@"; }
 
 # --- Accessibility driving -------------------------------------------------------
 
-open "$APP_DIR"
+# The panel offers the length chosen last; the argument domain pins the default,
+# so the screenshot does not depend on whoever used this Mac's build before.
+open "$APP_DIR" --args -Timer.selectedHours 2
 PID=""
 for _ in $(seq 1 20); do
     PID=$(pgrep -f "$EXECUTABLE" | head -1 || true)
