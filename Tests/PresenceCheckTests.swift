@@ -114,7 +114,7 @@ final class PresenceCheckTests: XCTestCase {
         var check = PresenceCheck()
         var verdict: PresenceCheck.Verdict?
         for index in 0..<400 where verdict == nil {
-            verdict = check.record(eyes: nil, at: Double(index) / 10, dark: true)
+            verdict = check.record(eyes: nil, at: Double(index) / 10, luma: 0.01)
         }
         XCTAssertEqual(verdict, .unclear, "A black frame cannot tell an empty bed from a sleeper")
     }

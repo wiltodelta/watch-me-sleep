@@ -46,6 +46,16 @@ public class TimerManager: ObservableObject {
     /// when it finds someone still there (the night watch's camera look).
     public typealias FinalPhaseCheck = (_ someoneThere: @escaping () -> Void) -> Void
 
+    /// Why a timer stopped before zero, for the journal.
+    public enum StopReason: String {
+        case byHand = "stopped by hand"
+        case replaced
+        case input
+        case openEyes = "open eyes"
+        case mediaStarted = "media started"
+        case sleptThrough = "ran out while the Mac slept"
+    }
+
     public enum SleepKind {
         /// The timer ran out: sleep, or only turn the display off while work
         /// holds the Mac awake.
@@ -88,7 +98,10 @@ public class TimerManager: ObservableObject {
     }
 
     public func startTimer(hours: Double, stopsOnInput: Bool = false, finalPhaseCheck: FinalPhaseCheck? = nil) {
-        stopTimer()
+        stopTimer(reason: .replaced)
+        Journal.shared.record("timer.start", [
+            "minutes": hours * 60, "stopsOnInput": stopsOnInput, "looksInFinalMinute": finalPhaseCheck != nil
+        ])
         generation += 1
         self.stopsOnInput = stopsOnInput
         refreshEndAction(force: true)
@@ -106,7 +119,11 @@ public class TimerManager: ObservableObject {
         notifyTimerUpdated()
     }
 
-    public func stopTimer() {
+    /// - Parameter reason: why, for the journal.
+    public func stopTimer(reason: StopReason = .byHand) {
+        if isTimerActive {
+            Journal.shared.record("timer.stop", ["reason": reason.rawValue, "remaining": Int(remainingTime)])
+        }
         deactivate()
         volume.restore()
     }
@@ -129,13 +146,14 @@ public class TimerManager: ObservableObject {
     /// Someone is still there during the final minute (input, or the final
     /// phase check): the volume comes back and zero postpones instead of sleeping.
     /// The night watch's timer stops instead, at any time.
-    func markUserActive() {
+    func markUserActive(_ how: StopReason = .input) {
         if stopsOnInput {
             Logger.app("timer").info("Someone is at the Mac; stopping the night watch's timer")
-            stopTimer()
+            stopTimer(reason: how)
             return
         }
         guard isInFinalPhase, !isUserActive else { return }
+        Journal.shared.record("timer.someoneThere", ["how": how.rawValue])
         isUserActive = true
         volume.restore()
         notifyTimerUpdated()
@@ -168,7 +186,7 @@ public class TimerManager: ObservableObject {
             // Ran out while the Mac slept (lid closed, Apple menu): its job is
             // done, and sleeping now would put a just-woken Mac straight back.
             Logger.app("timer").info("Timer ran out during sleep; stopping it")
-            stopTimer()
+            stopTimer(reason: .sleptThrough)
             return
         }
 
@@ -204,10 +222,11 @@ public class TimerManager: ObservableObject {
     private func updateFinalPhase() {
         if finalPhaseStart == nil {
             finalPhaseStart = now()
+            Journal.shared.record("timer.finalMinute", ["endsWithDisplayOff": endsWithDisplayOff])
             let asked = generation
             finalPhaseCheck? { [weak self] in
                 guard let self, self.generation == asked else { return }
-                self.markUserActive()
+                self.markUserActive(.openEyes)
             }
         }
 
@@ -236,6 +255,7 @@ public class TimerManager: ObservableObject {
     private func finish() {
         if isUserActive || userWasActive(since: finalPhaseStart) {
             Logger.app("timer").info("Mac in use at zero; postponing \(Self.postponeMinutes) minutes")
+            Journal.shared.record("timer.postponed", ["minutes": Self.postponeMinutes])
             extend(minutes: Self.postponeMinutes, from: now())
             return
         }
@@ -250,6 +270,7 @@ public class TimerManager: ObservableObject {
         // The same reading `endsWithDisplayOff` promised from.
         let work = kind == .unlessWorkHolds ? workHolders() : []
         let command = work.isEmpty ? "sleepnow" : "displaysleepnow"
+        Journal.shared.record("sleep", ["command": command, "work": work, "byHand": kind == .always])
         if !work.isEmpty {
             let holders = work.joined(separator: ", ")
             Logger.app("timer").info("Work holds the Mac awake (\(holders, privacy: .public)); display off only")

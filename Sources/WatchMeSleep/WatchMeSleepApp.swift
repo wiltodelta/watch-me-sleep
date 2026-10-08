@@ -120,6 +120,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Sparkle's daily checks (Updater).
         Updater.shared.start()
 
+        // The opt-in diary for debugging a real night (docs/diagnostics.md).
+        Journal.shared.observeSystem()
+        var launch = supervisor.settingsSnapshot
+        launch["version"] = Updater.shared.version
+        Journal.shared.record("launch", launch)
+
         askSoundChoiceOnce()
     }
 
@@ -139,6 +145,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         alert.addButton(withTitle: "Stop It Once I'm Asleep")
         alert.addButton(withTitle: "Keep It Playing")
         supervisor.keepsSoundPlaying = alert.runModal() == .alertSecondButtonReturn
+        Journal.shared.record("soundChoice", ["keepsSoundPlaying": supervisor.keepsSoundPlaying])
         NSApp.setActivationPolicy(.accessory)
     }
 

@@ -208,6 +208,10 @@ Automatic checks can be turned off in Settings.
 - **No icon in the menu bar:** confirm you are on macOS 14 or later; on macOS 26
   also check System Settings > Menu Bar > Allow in the Menu Bar. Opening the app
   again shows its settings window either way.
+- **The night watch did something unexpected:** turn on its diagnostics
+  journal with `defaults write com.wiltodelta.watchmesleep Diagnostics.journal
+  -bool true`; it records what it saw and did, without images, in
+  `~/Library/Logs/WatchMeSleep/` ([diagnostics](docs/diagnostics.md)).
 
 ## Building and releasing
 
@@ -243,6 +247,7 @@ the Trash. To remove its settings too:
 
 ```bash
 defaults delete com.wiltodelta.watchmesleep
+rm -rf ~/Library/Logs/WatchMeSleep
 ```
 
 Remove it from System Settings > Privacy & Security > Camera and from General >

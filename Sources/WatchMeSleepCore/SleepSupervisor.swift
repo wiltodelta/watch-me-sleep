@@ -93,26 +93,16 @@ public final class SleepSupervisor: ObservableObject {
     private var holders = WakeHolders.none
     /// The running timer is the quiet Mac's, which media starting overrules.
     private var quietTimerArmed = false
+    /// Input idle time at the latest poll, for the journal.
+    private var lastIdle: TimeInterval = 0
 
     /// Input more recent than this counts as someone using the Mac.
     static let inUseIdle: TimeInterval = 30
     private let pollInterval: TimeInterval = 10
     private var pollTimer: Timer?
     private var timerObservation: AnyCancellable?
-    private var isLoaded = false
+    private(set) var isLoaded = false
     private let log = Logger.app("nightwatch")
-
-    enum Key {
-        static let enabled = "NightWatch.enabled"
-        static let bedtimeStart = "NightWatch.bedtimeStart"
-        static let bedtimeEnd = "NightWatch.bedtimeEnd"
-        // Whole hours, as 3.0 and earlier stored them; read once to carry over.
-        static let legacyStartHour = "AutoActivation.afterHour"
-        static let legacyEndHour = "AutoActivation.untilHour"
-        static let usesCamera = "AutoActivation.checksWithCamera"
-        static let keepsSoundPlaying = "NightWatch.keepsSoundPlaying"
-        static let soundChoiceAsked = "NightWatch.soundChoiceAsked"
-    }
 
     private init() {
         load()
@@ -129,12 +119,14 @@ public final class SleepSupervisor: ObservableObject {
 
     /// Watch now, outside bedtime: a nap.
     public func watchNow() {
+        Journal.shared.record("nap", ["on": true])
         isWatchingNow = true
         refreshStatus()
     }
 
     public func stopWatchingNow() {
         guard isWatchingNow else { return }
+        Journal.shared.record("nap", ["on": false])
         isWatchingNow = false
         refreshStatus()
     }
@@ -176,6 +168,7 @@ public final class SleepSupervisor: ObservableObject {
 
     private func refreshStatus() {
         let idle = idleSecondsProvider()
+        lastIdle = idle
         if let gate = gate(idle: idle) {
             setStatus(gate)
         } else {
@@ -187,6 +180,7 @@ public final class SleepSupervisor: ObservableObject {
 
     func tick() {
         let idle = idleSecondsProvider()
+        lastIdle = idle
         if let gate = gate(idle: idle) {
             return setStatus(gate)
         }
@@ -201,7 +195,8 @@ public final class SleepSupervisor: ObservableObject {
         }
         guard isEnabled else { return .off }
         let inWindow = bedtimeMinutes > 0 && isWithinWindow(now())
-        if inWindow {
+        if inWindow, isWatchingNow {
+            Journal.shared.record("nap", ["on": false, "why": "bedtime"])
             isWatchingNow = false // Bedtime takes over the nap.
         }
         let watching = inWindow || isWatchingNow
@@ -221,7 +216,8 @@ public final class SleepSupervisor: ObservableObject {
     private func overruleQuietTimer(watching: Bool) -> Bool {
         guard watching, quietTimerArmed, timer.stopsOnInput, holders.mediaPlaying else { return false }
         log.info("Media started during the quiet timer; watching it instead")
-        timer.stopTimer()
+        Journal.shared.record("quietTimer.overruled", context([:]))
+        timer.stopTimer(reason: .mediaStarted)
         stretch.acted = false
         return true
     }
@@ -283,7 +279,12 @@ public final class SleepSupervisor: ObservableObject {
         // Any input since the look began outdates its answer, as does a timer
         // started meanwhile.
         let sinceLook = now().timeIntervalSince(lookStarted)
-        guard idleSecondsProvider() >= max(Self.inUseIdle, sinceLook), !timer.isTimerActive else { return }
+        guard idleSecondsProvider() >= max(Self.inUseIdle, sinceLook), !timer.isTimerActive else {
+            Journal.shared.record("look.ignored", context([
+                "verdict": String(describing: verdict), "timerRunning": timer.isTimerActive
+            ]))
+            return
+        }
 
         // Only eyes read open or closed prove a face: unclear also covers a
         // look that saw nothing but darkness.
@@ -292,6 +293,7 @@ public final class SleepSupervisor: ObservableObject {
         }
         // Never seen in this stretch: the camera may not cover the viewer.
         let verdict = verdict == .absent && !stretch.faceSeen ? .unclear : verdict
+        Journal.shared.record("look.result", context(["verdict": String(describing: verdict)]))
         let recheck = recheckDate
         switch verdict {
         case .asleep, .absent:
@@ -319,6 +321,7 @@ public final class SleepSupervisor: ObservableObject {
     /// - Parameter quiet: the quiet Mac's timer, which media starting overrules.
     private func arm(for duration: TimeInterval, reason: String, looksAgain: Bool = false, quiet: Bool = false) {
         log.info("Starting a \(duration / 60, privacy: .public)-minute timer: \(reason, privacy: .public)")
+        Journal.shared.record("arm", context(["minutes": duration / 60, "reason": reason, "looksAgain": looksAgain]))
         stretch.acted = true
         quietTimerArmed = quiet
         let check: TimerManager.FinalPhaseCheck? = looksAgain
@@ -331,11 +334,16 @@ public final class SleepSupervisor: ObservableObject {
     /// The final minute of its own timer: one more look, and open eyes count as
     /// someone still watching, like a touch of the mouse.
     private func lookInFinalPhase(someoneThere: @escaping () -> Void) {
-        guard !isLooking, cameraUsable else { return }
+        guard !isLooking, cameraUsable else {
+            return Journal.shared.record("look.skipped", context(["kind": "final minute", "looking": isLooking]))
+        }
         isLooking = true
+        Journal.shared.record("look", context(["kind": "final minute"]))
         checkPresence { [weak self] verdict in
             guard let self else { return }
             self.isLooking = false
+            let fields: [String: Any] = ["kind": "final minute", "verdict": String(describing: verdict)]
+            Journal.shared.record("look.result", self.context(fields))
             guard verdict == .awake else { return }
             self.log.info("Open eyes in the final minute; stopping the timer")
             let wasRunning = self.timer.isTimerActive
@@ -348,7 +356,19 @@ public final class SleepSupervisor: ObservableObject {
     }
 
     private func setStatus(_ new: NightWatchStatus) {
-        if status != new { status = new }
+        guard status != new else { return }
+        status = new
+        Journal.shared.record("status", context(["status": String(describing: new)]))
+    }
+
+    /// What the night watch saw at the latest poll, around a journal entry.
+    private func context(_ fields: [String: Any]) -> [String: Any] {
+        fields.merging([
+            "idle": Int(lastIdle),
+            "media": holders.mediaPlaying, "video": holders.videoPlaying, "work": holders.work,
+            "nap": isWatchingNow, "cameraUsable": cameraUsable, "faceSeen": stretch.faceSeen,
+            "unclearLooks": stretch.unclearLooks, "acted": stretch.acted
+        ]) { own, _ in own }
     }
 
     /// Whether `date` falls inside `[bedtimeStart, bedtimeEnd)`, wrapping across
@@ -383,49 +403,5 @@ public final class SleepSupervisor: ObservableObject {
     /// Bedtime's length in minutes, across midnight when it wraps.
     public var bedtimeMinutes: Int {
         (bedtimeEnd - bedtimeStart + 24 * 60) % (24 * 60)
-    }
-
-    // MARK: - Persistence
-
-    /// A bedtime in minutes after midnight, or the whole hour 3.0 and earlier
-    /// stored under the legacy key, or nil when neither is there.
-    static func storedMinutes(_ defaults: UserDefaults, key: String, legacyHourKey: String) -> Int? {
-        if defaults.object(forKey: key) != nil {
-            return defaults.integer(forKey: key)
-        }
-        if defaults.object(forKey: legacyHourKey) != nil {
-            return defaults.integer(forKey: legacyHourKey) * 60
-        }
-        return nil
-    }
-
-    private func load() {
-        if defaults.object(forKey: Key.enabled) != nil {
-            isEnabled = defaults.bool(forKey: Key.enabled)
-        }
-        if let start = Self.storedMinutes(defaults, key: Key.bedtimeStart, legacyHourKey: Key.legacyStartHour) {
-            bedtimeStart = start
-        }
-        if let end = Self.storedMinutes(defaults, key: Key.bedtimeEnd, legacyHourKey: Key.legacyEndHour) {
-            bedtimeEnd = end
-        }
-        if defaults.object(forKey: Key.usesCamera) != nil {
-            usesCamera = defaults.bool(forKey: Key.usesCamera)
-        }
-        keepsSoundPlaying = defaults.bool(forKey: Key.keepsSoundPlaying)
-    }
-
-    private func persist() {
-        guard isLoaded else { return }
-        defaults.set(isEnabled, forKey: Key.enabled)
-        defaults.set(bedtimeStart, forKey: Key.bedtimeStart)
-        defaults.set(bedtimeEnd, forKey: Key.bedtimeEnd)
-        defaults.set(usesCamera, forKey: Key.usesCamera)
-        defaults.set(keepsSoundPlaying, forKey: Key.keepsSoundPlaying)
-    }
-
-    private func settingsChanged() {
-        persist()
-        startMonitoring()
     }
 }

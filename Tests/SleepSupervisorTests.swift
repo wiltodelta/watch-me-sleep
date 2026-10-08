@@ -469,4 +469,29 @@ final class SleepSupervisorTests: XCTestCase {
         answer(.absent)
         XCTAssertFalse(timer.isTimerActive)
     }
+
+    func testANightLeavesItsDecisionsInTheJournal() throws {
+        let journal = Journal.shared
+        let (directory, enabled) = (journal.directory, journal.isEnabled)
+        journal.directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        journal.isEnabled = { true }
+        defer {
+            try? FileManager.default.removeItem(at: journal.directory)
+            (journal.directory, journal.isEnabled) = (directory, enabled)
+        }
+
+        idleFor(minutes: 10)
+        answer(.asleep)
+
+        journal.flush()
+        let entries = try String(contentsOf: journal.fileURL, encoding: .utf8).split(separator: "\n").map {
+            try XCTUnwrap(JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any])
+        }
+        let events = entries.compactMap { $0["event"] as? String }
+        let result = entries.first { $0["event"] as? String == "look.result" }
+        XCTAssertEqual(result?["verdict"] as? String, "asleep")
+        XCTAssertEqual(result?["media"] as? Bool, true)
+        XCTAssertEqual(result?["idle"] as? Int, 600)
+        XCTAssertTrue(events.contains("arm") && events.contains("timer.start"), "\(events)")
+    }
 }

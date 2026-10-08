@@ -44,6 +44,12 @@ struct PresenceCheck {
     /// settle a verdict on its own.
     static let maxFrameGap: TimeInterval = 0.5
 
+    /// Mean luma below this, on 0...1, is too dark to find a face in: nearly
+    /// black, a dark room or a covered lens. Not measured against real nights
+    /// yet (the journal records each look's mean luma for that); kept low so a
+    /// sleeper lit by the screen still counts as a picture.
+    static let darkLuma = 0.04
+
     // Durations, not frame counts: the built-in camera delivered ~14 fps where
     // 10 were asked (measured 2026-10-05), and auto exposure can slow it in
     // the dark.
@@ -53,6 +59,9 @@ struct PresenceCheck {
     private var faceSeconds: TimeInterval = 0
     /// Time with neither a face nor light enough to find one.
     private var darkSeconds: TimeInterval = 0
+    private var lumaSum = 0.0
+    private var lumaFrames = 0
+
     private var openSeconds: TimeInterval = 0
     private var closedRun: TimeInterval = 0
     private var missedRun: TimeInterval = 0
@@ -69,13 +78,17 @@ struct PresenceCheck {
 
     /// One frame at `time` (seconds, any steady clock): what the eyes show, or
     /// nil when no face was found. Returns the verdict once there is one.
-    /// - Parameter dark: the frame is too dark to find a face in.
-    mutating func record(eyes: EyeReading?, at time: TimeInterval, dark: Bool = false) -> Verdict? {
+    /// - Parameter luma: the frame's mean luma on 0...1, where measured.
+    mutating func record(eyes: EyeReading?, at time: TimeInterval, luma: Double? = nil) -> Verdict? {
         // A frame stands for the time since the one before it.
         let span = lastFrame.map { min(max(time - $0, 0), Self.maxFrameGap) } ?? 0
         lastFrame = time
         frames += 1
         elapsed += span
+        if let luma {
+            lumaSum += luma
+            lumaFrames += 1
+        }
 
         if let eyes {
             faceSeconds += span
@@ -93,7 +106,7 @@ struct PresenceCheck {
                 if reached(openSeconds, openSecondsForAwake) { return .awake }
             }
         } else {
-            if dark { darkSeconds += span }
+            if let luma, luma < Self.darkLuma { darkSeconds += span }
             missedRun += span
             if reached(missedRun, missedSecondsTolerated) {
                 closedRun = 0
@@ -105,6 +118,17 @@ struct PresenceCheck {
     /// Durations are sums of frame gaps, so allow for floating-point error.
     private func reached(_ value: TimeInterval, _ limit: TimeInterval) -> Bool {
         value >= limit - 0.001
+    }
+
+    /// What the look measured, for the journal.
+    var summary: [String: Any] {
+        func rounded(_ value: Double, _ scale: Double = 100) -> Double { (value * scale).rounded() / scale }
+        var summary: [String: Any] = [
+            "frames": frames, "seconds": rounded(elapsed), "faceSeconds": rounded(faceSeconds),
+            "openSeconds": rounded(openSeconds), "darkSeconds": rounded(darkSeconds)
+        ]
+        if lumaFrames > 0 { summary["meanLuma"] = rounded(lumaSum / Double(lumaFrames), 1000) }
+        return summary
     }
 
     /// The verdict for a look cut short, or one that ran its full length.
@@ -153,8 +177,8 @@ extension CameraWatcher {
     }
 
     /// One frame into the running look, if there is one. Runs on the video queue.
-    func recordPresence(eyes: EyeReading?, at time: TimeInterval, dark: Bool) {
-        guard let verdict = presenceCheck?.record(eyes: eyes, at: time, dark: dark) else { return }
+    func recordPresence(eyes: EyeReading?, at time: TimeInterval, luma: Double?) {
+        guard let verdict = presenceCheck?.record(eyes: eyes, at: time, luma: luma) else { return }
         finishPresenceCheck(verdict)
     }
 
@@ -162,6 +186,9 @@ extension CameraWatcher {
     private func finishPresenceCheck(_ verdict: PresenceCheck.Verdict) {
         guard let completion = presenceCompletion else { return }
         let frames = presenceCheck?.frames ?? 0
+        var summary = presenceCheck?.summary ?? [:]
+        summary["verdict"] = String(describing: verdict)
+        Journal.shared.record("camera.look", summary)
         presenceCheck = nil
         presenceCompletion = nil
         Logger.app("presence").info(

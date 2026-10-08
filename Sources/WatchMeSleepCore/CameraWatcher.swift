@@ -174,20 +174,16 @@ public final class CameraWatcher: NSObject, ObservableObject {
 
         setFaceDetected(eyes != nil)
         let time = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer))
-        // Brightness matters only to a running look, and only where no face was found.
-        recordPresence(eyes: eyes, at: time, dark: eyes == nil && presenceCheck != nil && Self.isDark(pixelBuffer))
+        // Brightness matters only to a running look.
+        recordPresence(eyes: eyes, at: time, luma: presenceCheck == nil ? nil : Self.meanLuma(pixelBuffer))
     }
 
-    /// Mean luma below this, on 0...1, is too dark to find a face in: nearly
-    /// black, a dark room or a covered lens. Not measured against real nights
-    /// yet; kept low so a sleeper lit by the screen still counts as a picture.
-    static let darkLuma = 0.04
-
-    /// Samples the luma plane of a full-range 4:2:0 frame on a coarse grid.
-    static func isDark(_ pixelBuffer: CVPixelBuffer) -> Bool {
+    /// Mean luma on 0...1, sampling the luma plane of a full-range 4:2:0
+    /// frame on a coarse grid; nil when the frame cannot be read.
+    static func meanLuma(_ pixelBuffer: CVPixelBuffer) -> Double? {
         CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
-        guard let base = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0) else { return false }
+        guard let base = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0) else { return nil }
         let width = CVPixelBufferGetWidthOfPlane(pixelBuffer, 0)
         let height = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0)
         let rowBytes = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0)
@@ -199,8 +195,8 @@ public final class CameraWatcher: NSObject, ObservableObject {
                 count += 1
             }
         }
-        guard count > 0 else { return false }
-        return Double(sum) / Double(count) / 255 < darkLuma
+        guard count > 0 else { return nil }
+        return Double(sum) / Double(count) / 255
     }
 
     private func publishAspectRatio(of pixelBuffer: CVPixelBuffer) {
