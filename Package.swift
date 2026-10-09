@@ -3,7 +3,7 @@ import PackageDescription
 
 /// Oldest supported macOS. `create-app.sh` reads this line for the bundle's
 /// `LSMinimumSystemVersion`.
-let deploymentTarget = "14.0"
+let deploymentTarget = "15.0"
 
 let package = Package(
     name: "WatchMeSleep",

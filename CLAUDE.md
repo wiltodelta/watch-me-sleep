@@ -31,6 +31,6 @@ You are a **principal Swift/macOS engineer** maintaining a menu bar app that put
 
 ## UI
 
-Supports the three latest macOS releases (currently 14+) on Apple silicon only, and follows Apple's HIG; `#available(macOS 26.0, *)` branches are the Liquid Glass path, the else branches serve 14 and 15.
+Supports the three latest macOS releases (currently 15+) on Apple silicon only, and follows Apple's HIG; `#available(macOS 26.0, *)` branches are the Liquid Glass path, the else branches serve 15.
 
 Menu-bar `.accessory` app: `SettingsView` lives in a custom `NSWindow` opened by `AppDelegate`, and the dropdown is a custom borderless `NSPanel` (`MenuBarPanel.swift`), not an `NSPopover`. The three load-bearing panel rules (`sizeThatFits` height, material backing kept at the AppKit level, pinned `.frame(width:)` plus layer-backed corner rounding): `docs/ui-architecture.md`.

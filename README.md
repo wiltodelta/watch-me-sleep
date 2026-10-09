@@ -85,7 +85,7 @@ System:
 
 ## Requirements
 
-- macOS 14 (Sonoma) or later. The three latest macOS releases are supported;
+- macOS 15 (Sequoia) or later. The three latest macOS releases are supported;
   on macOS 26 (Tahoe) and later the UI uses Liquid Glass.
 - A Mac with Apple silicon. Intel Macs are not supported.
 - For building from source: Xcode 26 or later.
@@ -205,7 +205,7 @@ Automatic checks can be turned off in Settings.
   preview that your face is visible and well lit. 2.1.0 is the first release
   signed with a Developer ID, a different signature from earlier builds, so
   macOS asks for camera access once more after the update.
-- **No icon in the menu bar:** confirm you are on macOS 14 or later; on macOS 26
+- **No icon in the menu bar:** confirm you are on macOS 15 or later; on macOS 26
   also check System Settings > Menu Bar > Allow in the Menu Bar. Opening the app
   again shows its settings window either way.
 - **The night watch did something unexpected:** turn on its diagnostics

@@ -55,8 +55,8 @@ enum WakeHolderClassifier {
     }
 
     /// - Parameters:
-    ///   - audioPIDs: processes playing audio, or nil where macOS cannot say
-    ///     (before 14.2); `audioRunning` answers for the device then.
+    ///   - audioPIDs: processes playing audio, or nil where Core Audio cannot
+    ///     list them; `audioRunning` answers for the device then.
     static func classify(
         _ assertions: [PowerAssertion],
         audioPIDs: Set<pid_t>?,
@@ -148,9 +148,8 @@ enum SystemSignals {
 
     // MARK: - Audio
 
-    /// Processes playing audio right now (macOS 14.2+), or nil before 14.2.
+    /// Processes playing audio right now, or nil when Core Audio cannot list them.
     static func audioPlayingPIDs() -> Set<pid_t>? {
-        guard #available(macOS 14.2, *) else { return nil }
         let system = AudioObjectID(kAudioObjectSystemObject)
         var address = CoreAudioProperty.address(kAudioHardwarePropertyProcessObjectList)
         var size: UInt32 = 0
@@ -166,7 +165,8 @@ enum SystemSignals {
         })
     }
 
-    /// Whether the default output device plays for anyone; the pre-14.2 answer.
+    /// Whether the default output device plays for anyone; the fallback when
+    /// the process list cannot answer.
     static func defaultOutputIsRunning() -> Bool {
         guard let device = CoreAudioProperty.defaultOutputDevice() else { return false }
         return CoreAudioProperty.read(device, kAudioDevicePropertyDeviceIsRunningSomewhere, as: UInt32(0)) ?? 0 != 0
