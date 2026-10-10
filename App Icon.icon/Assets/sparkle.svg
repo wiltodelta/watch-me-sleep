@@ -1,0 +1,7 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- The moon-star's plus (M18 5h4, M20 3v4 at stroke 1.5, scaled 25x) as filled
+       bars: the macOS 26 Icon Composer renderer fills a stroked open path across
+       its chord. -->
+  <rect x="643.25" y="318.25" width="137.5" height="37.5" rx="18.75" fill="white"/>
+  <rect x="693.25" y="268.25" width="37.5" height="137.5" rx="18.75" fill="white"/>
+</svg>
