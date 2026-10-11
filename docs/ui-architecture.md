@@ -22,6 +22,10 @@ Animating the height change is an open HIG gap: with `sizingOptions` left on, Au
 
 The panel follows the system light/dark appearance. On macOS 26+ the system status-bar menus take the menu bar's appearance instead, so they can be dark while the system is light; do not copy that onto the panel (decided 2026-09-23).
 
+## Right-click menu
+
+`AppDelegate.showQuickMenu` builds an `NSMenu` and shows it as the status item's own menu (`statusItem.menu`, `performClick`, then cleared, so a left click still opens the panel), which lets macOS place it under the icon. A hand-placed `popUp(positioning:at:in:)` opened above the menu bar: clipped, with a scroll arrow over the status line. Its `appearance` is set to `NSApp.effectiveAppearance`, so it follows the system like the panel rather than the menu bar (fixed 2026-10-10); that is the system's only while the app sets no `NSApp.appearance` of its own. Verify it with a region capture, not a window capture, which draws the glass flat gray.
+
 ## Sleep warning panel
 
 `SleepWarningController` (`SleepWarningPanel.swift`) shows the timer's final minute in the top-right corner. It reuses `PanelHostController`, so it carries the same backing and rounding as the dropdown. It is a panel, not a notification, because the Sleep focus and full-screen video hide notifications. It never becomes key (`becomesKeyOnlyIfNeeded`), so a video player keeps its keyboard while the buttons still take a first click; its prominent button therefore draws in the inactive gray, like a system banner's. A single-window capture of it renders the glass flat gray, as above.

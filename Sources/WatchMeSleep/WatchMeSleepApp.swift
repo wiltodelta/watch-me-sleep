@@ -231,7 +231,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Quit Watch Me While I Fall Asleep",
                                 action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
+        // macOS 26 status menus take the menu bar's appearance, dark over a
+        // dark wallpaper on a light system; this one follows the system, like
+        // the panel and every other window of the app.
+        menu.appearance = NSApp.effectiveAppearance
+        // Shown as the status item's own menu, so macOS places it under the
+        // icon (docs/ui-architecture.md).
+        statusItem.menu = menu
+        button.performClick(nil)
+        statusItem.menu = nil
     }
 
     /// macOS 26+ menus show icons for common actions; `terminate:` gets its icon
