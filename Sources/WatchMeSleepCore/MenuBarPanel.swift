@@ -1,15 +1,16 @@
 import AppKit
 import SwiftUI
 
+// twin: menu-bar-panel - watch-me-sleep and rota keep this file identical
+// except lines marked twin-local (claude-config bin/check-twins.py).
+
 /// Borderless panel that can take key focus so the hosted SwiftUI controls
-/// (sliders, buttons, the Return/Escape default actions) work like they did
-/// inside the old popover.
+/// (buttons, the Return/Escape default actions) work.
 public final class MenuBarPanelWindow: NSPanel {
     public override var canBecomeKey: Bool { true }
     public override var canBecomeMain: Bool { false }
 
-    /// Escape closes the panel, as it does a menu (UX-03); it used to stop a
-    /// running timer through the Stop Timer button's cancel shortcut.
+    /// Escape closes the panel, as it does a menu.
     var onCancel: (() -> Void)?
 
     public override func cancelOperation(_ sender: Any?) {
@@ -18,8 +19,8 @@ public final class MenuBarPanelWindow: NSPanel {
 }
 
 extension NSPanel {
-    /// The setup the dropdown and the sleep warning share: a clear borderless
-    /// panel above other apps' windows, on every Space and over full-screen apps.
+    /// A clear borderless panel above other apps' windows, on every Space and
+    /// over full-screen apps.
     func configureAsStatusPanel() {
         isOpaque = false
         backgroundColor = .clear
@@ -40,8 +41,7 @@ extension NSPanel {
 /// `NSHostingController` recurses through Auto Layout and overflows the stack.
 /// The window height is driven from the inner content's exact `sizeThatFits`
 /// (its `preferredContentSize` undercounts tall content and clipped the
-/// footer), so the panel resizes to fit as the content changes, from the
-/// timer picker to a running timer.
+/// footer), so the panel resizes to fit as the content changes.
 final class PanelHostController: NSViewController {
     private let host: NSHostingController<AnyView>
     private let fixedWidth: CGFloat
@@ -199,6 +199,18 @@ public final class MenuBarPanelController {
         panel.makeKeyAndOrderFront(nil)
         startMonitoring()
     }
+
+    /// Shows the panel with its top-left corner at `topLeft`, without a status
+    /// item: for capturing it while the item sits in a menu bar manager's hidden section.
+    public func show(topLeft: NSPoint) {
+        panel.setFrameOrigin(NSPoint(x: topLeft.x, y: topLeft.y - panel.frame.height))
+        anchorTopLeft = topLeft
+        startObservingResize()
+        panel.makeKeyAndOrderFront(nil)
+    }
+
+    /// The panel's window number, for `screencapture -l`.
+    public var windowNumber: Int { panel.windowNumber }
 
     public func close() {
         stopMonitoring()
