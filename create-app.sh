@@ -2,11 +2,19 @@
 # Build Watch Me While I Fall Asleep and assemble its signed .app bundle.
 #   ./create-app.sh              everyday build (Developer ID when available, no timestamp)
 #   RELEASE=1 ./create-app.sh    release build: Developer ID with a secure timestamp
+# Only a release build is com.wiltodelta.watchmesleep. Every other build is
+# com.wiltodelta.watchmesleep.dev, a separate app with its own defaults, journal,
+# login item and camera grant, so building and checking never touch the copy
+# someone relies on.
 set -euo pipefail
 cd "$(dirname "$0")"
 
 APP_NAME="Watch Me While I Fall Asleep"
-BUNDLE_ID="com.wiltodelta.watchmesleep"
+if [[ "${RELEASE:-}" == 1 ]]; then
+    BUNDLE_ID="com.wiltodelta.watchmesleep"; UPDATE_CHECKS="true"
+else
+    BUNDLE_ID="com.wiltodelta.watchmesleep.dev"; UPDATE_CHECKS="false"
+fi
 APP_DIR="$APP_NAME.app"
 BIN="WatchMeSleep"
 
@@ -98,7 +106,7 @@ cat > "$APP_DIR/Contents/Info.plist" << EOF
 	<key>SUPublicEDKey</key>
 	<string>hqKKidqlpRpssnvj1i6i1qY+jYdPjjDKIZHFyOxyGhc=</string>
 	<key>SUEnableAutomaticChecks</key>
-	<true/>
+	<$UPDATE_CHECKS/>
 	<key>SURequireSignedFeed</key>
 	<true/>
 	<key>SUVerifyUpdateBeforeExtraction</key>

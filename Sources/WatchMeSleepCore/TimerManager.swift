@@ -294,7 +294,7 @@ public class TimerManager: ObservableObject {
 
                 let alert = NSAlert()
                 // What happened, why, and what to do now (UX-13).
-                alert.messageText = "Couldn’t put your Mac to sleep"
+                alert.messageText = "Couldn't put your Mac to sleep"
                 alert.informativeText = "\(error.localizedDescription)\n\nChoose Apple menu > Sleep instead."
                 alert.alertStyle = .warning
                 alert.addButton(withTitle: "OK")

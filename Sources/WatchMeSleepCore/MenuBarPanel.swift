@@ -277,3 +277,14 @@ public final class MenuBarPanelController {
         }
     }
 }
+
+extension View {
+    /// A panel footer action at least 28 pt tall, the default control height on
+    /// macOS; the bare label was 15 pt, under the 20 pt minimum.
+    func footerTarget() -> some View {
+        padding(.vertical, 6)
+            .padding(.horizontal, 4)
+            .frame(minHeight: 28)
+            .contentShape(Rectangle())
+    }
+}

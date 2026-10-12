@@ -6,7 +6,7 @@ extension Color {
     /// text needs; this keeps the softer look at a readable contrast.
     /// The Settings footers use it too: the system form footer measured 3.95:1
     /// in light, this 4.95:1.
-    static let panelSecondary = Color.primary.opacity(0.66)
+    static let secondaryText = Color.primary.opacity(0.66)
 }
 
 extension View {

@@ -11,7 +11,9 @@ defaults write com.wiltodelta.watchmesleep Diagnostics.journal -bool true
 ```
 
 It takes effect at once, without a relaunch; `-bool false` turns it off. It
-is off by default, and the app has no switch for it.
+is off by default, and the app has no switch for it. A development build (any
+build without `RELEASE=1`) reads `com.wiltodelta.watchmesleep.dev` instead and
+writes to `~/Library/Logs/WatchMeSleep Dev/`.
 
 ## Where it goes
 

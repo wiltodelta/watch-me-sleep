@@ -56,10 +56,10 @@ struct CommonSettingsView: View {
                 Button {
                     updater.checkForUpdates()
                 } label: {
-                    Label("Install \(version)…", systemImage: "arrow.down.circle")
+                    Label("Install Update…", systemImage: "arrow.down.circle")
                         .footerTarget()
                 }
-                .help("Install version \(version)")
+                .help("Version \(version) is available")
             }
 
             Spacer()
@@ -71,7 +71,7 @@ struct CommonSettingsView: View {
             }
         }
         .buttonStyle(.plain)
-        .foregroundStyle(Color.panelSecondary)
+        .foregroundStyle(Color.secondaryText)
         .font(.callout)
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
@@ -211,7 +211,7 @@ struct ActiveTimerView: View {
                             .monospacedDigit()
                         Text("remaining")
                             .font(.caption)
-                            .foregroundStyle(Color.panelSecondary)
+                            .foregroundStyle(Color.secondaryText)
                     }
                 }
                 .frame(width: 140, height: 140)
@@ -224,7 +224,7 @@ struct ActiveTimerView: View {
                 Text("\(timerManager.endsWithDisplayOff ? "Display off" : "Sleep") at "
                      + formatTargetTime(timerManager.remainingTime))
                     .font(.callout)
-                    .foregroundStyle(Color.panelSecondary)
+                    .foregroundStyle(Color.secondaryText)
             }
             .padding(20)
             .padding(.top, 12)
@@ -277,14 +277,3 @@ let shortTimeFormatter: DateFormatter = {
     formatter.timeStyle = .short
     return formatter
 }()
-
-private extension View {
-    /// A footer action at least 28 pt tall, the default control height on macOS;
-    /// the bare label was 15 pt, under the 20 pt minimum (UX-02).
-    func footerTarget() -> some View {
-        padding(.vertical, 6)
-            .padding(.horizontal, 4)
-            .frame(minHeight: 28)
-            .contentShape(Rectangle())
-    }
-}

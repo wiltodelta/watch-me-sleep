@@ -17,7 +17,7 @@ struct NightWatchStatusView: View {
                     Circle().fill(tint.opacity(isOff ? 0.08 : 0.16))
                     Image(systemName: icon)
                         .font(.title2)
-                        .foregroundStyle(isOff ? Color.panelSecondary : tint)
+                        .foregroundStyle(isOff ? Color.secondaryText : tint)
                 }
                 .frame(width: 44, height: 44)
                 .accessibilityHidden(true)
@@ -26,7 +26,7 @@ struct NightWatchStatusView: View {
                         .font(.title3.weight(.semibold))
                     Text(detail)
                         .font(.callout)
-                        .foregroundStyle(Color.panelSecondary)
+                        .foregroundStyle(Color.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .accessibilityElement(children: .combine)
@@ -60,7 +60,7 @@ struct NightWatchStatusView: View {
                     }
                 }
                 .font(.caption)
-                .foregroundStyle(Color.panelSecondary)
+                .foregroundStyle(Color.secondaryText)
                 // The sound choice where it matters: while only sound plays.
                 if supervisor.isSoundOnlyPlaying {
                     HStack {
@@ -145,13 +145,13 @@ struct CameraPreviewRow: View {
                     // Color on the symbol only: green text on a light form
                     // fails contrast, and the words carry the state anyway.
                     Image(systemName: statusIcon)
-                        .foregroundStyle(camera.isFaceDetected ? Color.green : Color.panelSecondary)
+                        .foregroundStyle(camera.isFaceDetected ? Color.green : Color.secondaryText)
                     Text(statusTitle)
                 }
                 .font(.callout.weight(.medium))
                 Text("Sit or lie where you usually watch from. The light of the screen is enough.")
                     .font(.caption)
-                    .foregroundStyle(Color.panelSecondary)
+                    .foregroundStyle(Color.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .combine)

@@ -187,8 +187,8 @@ hidden).
 
 The app uses [Sparkle](https://sparkle-project.org) (MIT licensed; its notice
 ships in the app bundle) to check once a day for a new release. It never takes
-focus from what you are doing: when an update is found, an **Install X.Y.Z…**
-button appears in the panel footer, and the update window opens only when you
+focus from what you are doing: when an update is found, an **Install Update…**
+button appears in the panel footer (its tooltip names the version), and the update window opens only when you
 choose it or check by hand from Settings > Updates. Updates are signed with an
 EdDSA key as well as the Developer ID, and install in place with a relaunch.
 Automatic checks can be turned off in Settings.

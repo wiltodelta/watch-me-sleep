@@ -48,7 +48,7 @@ public struct SettingsView: View {
                 LabeledContent("Bedtime") {
                     HStack(spacing: 6) {
                         timeField("Bedtime starts", minutes: $supervisor.bedtimeStart)
-                        Text("to").foregroundStyle(.secondary)
+                        Text("to").foregroundStyle(Color.secondaryText)
                         timeField("Bedtime ends", minutes: $supervisor.bedtimeEnd)
                     }
                 }
@@ -77,7 +77,7 @@ public struct SettingsView: View {
         } header: {
             Text("Night watch")
         } footer: {
-            Text(nightWatchFooter).foregroundStyle(Color.panelSecondary)
+            Text(nightWatchFooter).foregroundStyle(Color.secondaryText)
         }
     }
 
@@ -143,7 +143,7 @@ public struct SettingsView: View {
         } footer: {
             Text(launchManager.errorMessage.map { "Couldn't change this: \($0)" }
                  ?? "Start Watch Me While I Fall Asleep automatically when you log in to your Mac.")
-                .foregroundStyle(Color.panelSecondary)
+                .foregroundStyle(Color.secondaryText)
         }
     }
 
@@ -164,7 +164,7 @@ public struct SettingsView: View {
             Text("Updates")
         } footer: {
             Text("Checks once a day and installs a new version when you choose to.")
-                .foregroundStyle(Color.panelSecondary)
+                .foregroundStyle(Color.secondaryText)
         }
     }
 

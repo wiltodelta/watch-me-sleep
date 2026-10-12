@@ -63,7 +63,7 @@ struct SleepWarningView: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: timerManager.endsWithDisplayOff ? "display" : "moon.zzz.fill")
                     .font(.title2)
-                    .foregroundStyle(Color.panelSecondary)
+                    .foregroundStyle(Color.secondaryText)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -72,7 +72,7 @@ struct SleepWarningView: View {
                         .monospacedDigit()
                     Text(subtitle)
                         .font(.callout)
-                        .foregroundStyle(Color.panelSecondary)
+                        .foregroundStyle(Color.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }

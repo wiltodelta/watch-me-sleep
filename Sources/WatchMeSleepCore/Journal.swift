@@ -21,8 +21,11 @@ public final class Journal: @unchecked Sendable {
 
     // Seams for tests.
     var isEnabled: () -> Bool = { UserDefaults.standard.bool(forKey: Journal.enabledKey) }
+    /// A development build (bundle id ending in .dev) keeps its own journal.
     var directory = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Logs/WatchMeSleep", isDirectory: true)
+        .appendingPathComponent("Library/Logs/WatchMeSleep"
+                                    + (Bundle.main.bundleIdentifier?.hasSuffix(".dev") == true ? " Dev" : ""),
+                                isDirectory: true)
 
     var fileURL: URL { directory.appendingPathComponent("journal.jsonl") }
     var previousFileURL: URL { directory.appendingPathComponent("journal.1.jsonl") }

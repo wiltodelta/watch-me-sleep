@@ -226,8 +226,7 @@ cleanup() {
     [ -n "$BACKDROP_PID" ] && kill "$BACKDROP_PID" 2>/dev/null
     # Never leave a timer armed or the camera on.
     if timer_running 2>/dev/null; then open_panel && press stopTimer || true; fi
-    # Quit the fresh build too: left running, it makes an installed copy quit on
-    # launch (the single-instance check).
+    # Quit the fresh build too, so no development copy is left running.
     [ -n "$PID" ] && kill "$PID" 2>/dev/null
     rm -rf "$WORK"
 }
