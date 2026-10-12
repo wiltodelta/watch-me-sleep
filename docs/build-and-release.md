@@ -17,7 +17,9 @@ profile, `RELEASE=1 ./create-app.sh`, `./notarize.sh`, then the Sparkle
 `appcast.xml` (this release only, EdDSA-signed, with the tag body embedded as
 Markdown release notes), and the GitHub Release with the zip, the appcast, the
 tag's first line as its title and its body as the notes. CI refuses a
-lightweight tag or one without a body.
+lightweight tag, one without a body, and one that is not `vX.Y.Z` or not above
+every earlier tag: Sparkle offers only a higher version, so a lower number
+never reaches anybody on the newer release (3.6.1 after 3.7, fixed by 3.7.1).
 
 The repository secrets it reads are `DEVELOPER_ID_P12_BASE64`,
 `DEVELOPER_ID_P12_PASSWORD`, `NOTARY_KEY_P8_BASE64`, `NOTARY_KEY_ID`,

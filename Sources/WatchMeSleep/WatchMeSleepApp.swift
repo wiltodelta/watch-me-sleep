@@ -83,6 +83,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // accessibility label for every icon); the countdown is its value.
             button.setAccessibilityLabel("Watch Me While I Fall Asleep")
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+            addShowMenuAction(to: button)
         }
 
         // Create the arrowless dropdown panel. capture-screenshots.sh finds it by
@@ -188,6 +189,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// The right-click menu answers only to a real right click, so VoiceOver
+    /// reaches it through this action (the Actions rotor).
+    private func addShowMenuAction(to button: NSStatusBarButton) {
+        button.setAccessibilityCustomActions([
+            NSAccessibilityCustomAction(name: "Show Menu") { [weak self] in
+                self?.showQuickMenu()
+                return true
+            }
+        ])
+    }
+
     private func showQuickMenu() {
         guard let button = statusItem.button else { return }
 
@@ -230,6 +242,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // The standard selector lets macOS 26+ give the item its system icon.
         menu.addItem(NSMenuItem(title: "Quit Watch Me While I Fall Asleep",
                                 action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.items.forEach(showsImage)
 
         // macOS 26 status menus take the menu bar's appearance, dark over a
         // dark wallpaper on a light system; this one follows the system, like
@@ -249,6 +262,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if #available(macOS 26.0, *) {
             item.image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
         }
+    }
+
+    // macOS 27 hides menu item images unless an item asks for them
+    // (NSMenuItem.preferredImageVisibility), the system's own Quit icon included;
+    // set through the runtime because CI builds with an older SDK. 1 is
+    // NSMenuItemImageVisibilityVisible, as in translate-like-me's StatusMenu.showsImage.
+    private func showsImage(_ item: NSMenuItem) {
+        guard item.responds(to: NSSelectorFromString("setPreferredImageVisibility:")) else { return }
+        item.setValue(1, forKey: "preferredImageVisibility")
     }
 
     @objc private func quickStartTimer(_ sender: NSMenuItem) {
@@ -273,6 +295,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             window.styleMask = [.titled, .closable]
             window.isReleasedWhenClosed = false
             window.delegate = self
+            // Centred before SwiftUI sized it, the window was a zero-size frame at
+            // the screen centre that then grew right and up into the menu bar.
+            window.setContentSize(hosting.view.fittingSize)
             window.center()
             settingsWindow = window
         }

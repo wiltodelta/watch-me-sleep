@@ -49,7 +49,8 @@ final class WakeHolderClassifierTests: XCTestCase {
     }
 
     func testPlayingAudioIsMediaEvenWithItsOwnSystemAssertion() {
-        let spotify = holder(500, "Spotify", "PreventUserIdleSystemSleep", "/Applications/Spotify.app/Contents/MacOS/Spotify")
+        let spotify = holder(500, "Spotify", "PreventUserIdleSystemSleep",
+                             "/Applications/Spotify.app/Contents/MacOS/Spotify")
         let coreaudiod = holder(536, "coreaudiod", "PreventUserIdleSystemSleep", "/usr/sbin/coreaudiod")
         XCTAssertEqual(classify([spotify, coreaudiod], audio: [500]), WakeHolders(mediaPlaying: true, work: []))
         XCTAssertTrue(classify([spotify, coreaudiod], audio: [500]).soundOnly)
@@ -58,8 +59,10 @@ final class WakeHolderClassifierTests: XCTestCase {
     func testABrowserPlayingAFilmIsNotSoundOnly() {
         // Holding the system as well as the display, and playing audio.
         let chrome = [
-            holder(900, "Google Chrome", "PreventUserIdleDisplaySleep", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
-            holder(900, "Google Chrome", "PreventUserIdleSystemSleep", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+            holder(900, "Google Chrome", "PreventUserIdleDisplaySleep",
+                   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+            holder(900, "Google Chrome", "PreventUserIdleSystemSleep",
+                   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
         ]
         XCTAssertFalse(classify(chrome, audio: [900]).soundOnly)
     }

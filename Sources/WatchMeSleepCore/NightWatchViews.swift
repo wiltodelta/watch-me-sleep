@@ -10,13 +10,14 @@ struct NightWatchStatusView: View {
 
     var body: some View {
         let isOff = supervisor.status == .off
+        let tint = supervisor.status == .noBedtime ? Color.orange : Color.accentColor
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 12) {
                 ZStack {
-                    Circle().fill(Color.accentColor.opacity(isOff ? 0.08 : 0.16))
+                    Circle().fill(tint.opacity(isOff ? 0.08 : 0.16))
                     Image(systemName: icon)
                         .font(.title2)
-                        .foregroundStyle(isOff ? Color.panelSecondary : Color.accentColor)
+                        .foregroundStyle(isOff ? Color.panelSecondary : tint)
                 }
                 .frame(width: 44, height: 44)
                 .accessibilityHidden(true)
@@ -85,7 +86,8 @@ struct NightWatchStatusView: View {
 
     private var icon: String {
         switch supervisor.status {
-        case .off, .noBedtime: return "moon"
+        case .off: return "moon"
+        case .noBedtime: return "exclamationmark.triangle"
         case .looking: return "eye"
         case .keepingSound: return "speaker.wave.2"
         case .watching(_, let mediaPlaying, _): return mediaPlaying ? "play.tv" : "moon.stars"

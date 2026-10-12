@@ -67,7 +67,8 @@ final class PresenceCheckTests: XCTestCase {
 
     func testEyesOpenForASecondStartTheRunOver() {
         var check = PresenceCheck()
-        let woke: [EyeReading?] = Array(repeating: EyeReading.closed, count: 100) + Array(repeating: EyeReading.open, count: 11)
+        let woke: [EyeReading?] = Array(repeating: EyeReading.closed, count: 100)
+            + Array(repeating: EyeReading.open, count: 11)
             + Array(repeating: EyeReading.closed, count: 200)
         let result = run(&check, woke)
         XCTAssertEqual(result?.0, .asleep)

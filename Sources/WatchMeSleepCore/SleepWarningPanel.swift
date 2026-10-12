@@ -106,6 +106,9 @@ struct SleepWarningView: View {
             .accessibilityIdentifier("sleepNow")
         }
         .controlSize(.regular)
+        // The panel is nonactivating and never key, which drew the prominent
+        // button as an inactive gray one beside +30m.
+        .environment(\.controlActiveState, .key)
     }
 
     private var seconds: Int {

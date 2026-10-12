@@ -48,8 +48,10 @@ final class EyeDetectionBenchmark: XCTestCase {
             // About 2.5 stops under, with sensor-like noise: a room lit by the screen.
             let dim = out.applyingFilter("CIExposureAdjust", parameters: [kCIInputEVKey: -2.5])
             let noise = CIFilter(name: "CIRandomGenerator")!.outputImage!.applyingFilter("CIColorMatrix", parameters: [
-                "inputRVector": CIVector(x: 0.04, y: 0, z: 0, w: 0), "inputGVector": CIVector(x: 0, y: 0.04, z: 0, w: 0),
-                "inputBVector": CIVector(x: 0, y: 0, z: 0.04, w: 0), "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 0),
+                "inputRVector": CIVector(x: 0.04, y: 0, z: 0, w: 0),
+                "inputGVector": CIVector(x: 0, y: 0.04, z: 0, w: 0),
+                "inputBVector": CIVector(x: 0, y: 0, z: 0.04, w: 0),
+                "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 0),
                 "inputBiasVector": CIVector(x: -0.02, y: -0.02, z: -0.02, w: 0)
             ])
             out = noise.applyingFilter("CIAdditionCompositing", parameters: [kCIInputBackgroundImageKey: dim])

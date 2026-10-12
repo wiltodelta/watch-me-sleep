@@ -11,7 +11,8 @@ You are a **principal Swift/macOS engineer** maintaining a menu bar app that put
 ## Test and lint
 
 - `bash maintain.sh` - the canonical Swift gate.
-- `swiftlint` must be installed for the lint step (`brew install swiftlint`); `maintain.sh` skips linting if it is missing. It fails the gate on a file over 500 lines or a function over cyclomatic complexity 10: split by type or extract a helper.
+- `swiftlint` must be installed for the lint step (`brew install swiftlint`); `maintain.sh` fails without it. It lints `Sources` and `Tests`. It fails the gate on a file over 500 lines or a function over cyclomatic complexity 10: split by type or extract a helper.
+- The right-click menu opens only on a real right click; checks reach it through the status button's `Show Menu` accessibility custom action (`AXUIElementPerformAction` with its `Name:Show Menu` action name).
 - The app quits on launch if another instance with its bundle id runs; test a second copy beside the installed one under a different `CFBundleIdentifier` (and remove its TCC rows afterwards).
 - "Launch at login" registers whichever bundle is running, so toggling it in a dev build points the login item at the repo copy; check with `sfltool dumpbtm`.
 - Running the bare `.build/debug/WatchMeSleep` shows Sparkle's modal "Unable to Check For Updates", and its modal loop stalls the timer's ticks; it and `xctest` also hold no Camera grant, so the night watch's camera look answers `unavailable` there. Exercise the camera path from the signed bundle.

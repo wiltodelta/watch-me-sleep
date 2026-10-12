@@ -2,6 +2,7 @@
 
 included:
   - Sources
+  - Tests
 
 excluded:
   - .build

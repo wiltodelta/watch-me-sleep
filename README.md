@@ -221,7 +221,7 @@ Automatic checks can be turned off in Settings.
   ad hoc, and then camera access re-prompts after every rebuild.
 - `RELEASE=1 ./create-app.sh && ./notarize.sh` adds a secure timestamp,
   notarizes, staples, and writes the release zip.
-- `bash maintain.sh` runs SwiftLint, the tests, and a release build.
+- `bash maintain.sh` runs SwiftLint, the tests, and `create-app.sh`.
 - `./capture-screenshots.sh` rebuilds the app and regenerates the screenshots
   above through Accessibility, blurring the camera feed. It needs Accessibility
   and Screen Recording access for the terminal and turns the camera on briefly.
