@@ -21,6 +21,7 @@ final class FakeVolume: VolumeControl {
     }
 }
 
+@MainActor
 final class TimerManagerTests: XCTestCase {
     var timerManager: TimerManager!
     var didTriggerSleep = false
@@ -28,8 +29,8 @@ final class TimerManagerTests: XCTestCase {
     var fakeVolume: FakeVolume!
     var idleSeconds: TimeInterval = .infinity
 
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
+        try await super.setUp()
         timerManager = TimerManager.shared
         timerManager.stopTimer()
         // Override the sleep seam so the suite never actually sleeps the machine.
@@ -49,10 +50,10 @@ final class TimerManagerTests: XCTestCase {
         timerManager.workHolders = { [] }
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         timerManager.stopTimer()
         timerManager.now = Date.init
-        super.tearDown()
+        try await super.tearDown()
     }
 
     /// Starts a 15-minute timer on a frozen clock and returns a way to move it.
@@ -452,61 +453,25 @@ final class TimerManagerTests: XCTestCase {
 
     func testTimerStartSendsNotification() {
         // Given
-        let expectation = self.expectation(description: "Timer start notification")
-        var observerToken: Any?
-        observerToken = NotificationCenter.default.addObserver(
-            forName: .timerUpdated,
-            object: nil,
-            queue: .main
-        ) { _ in
-            expectation.fulfill()
-            // Remove observer immediately after first call to prevent multiple fulfills
-            if let token = observerToken {
-                NotificationCenter.default.removeObserver(token)
-            }
-        }
+        let expectation = XCTNSNotificationExpectation(name: .timerUpdated)
 
         // When
         timerManager.startTimer(hours: 1.0)
 
         // Then
-        waitForExpectations(timeout: 1.0)
-        // Ensure cleanup even if test fails
-        if let token = observerToken {
-            NotificationCenter.default.removeObserver(token)
-        }
+        wait(for: [expectation], timeout: 1.0)
     }
 
     func testTimerStopSendsNotification() {
         // Given
         timerManager.startTimer(hours: 1.0)
-
-        // Wait a bit to ensure start notification is processed
-        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
-
-        let expectation = self.expectation(description: "Timer stop notification")
-        var observerToken: Any?
-        observerToken = NotificationCenter.default.addObserver(
-            forName: .timerUpdated,
-            object: nil,
-            queue: .main
-        ) { _ in
-            expectation.fulfill()
-            // Remove observer immediately after first call
-            if let token = observerToken {
-                NotificationCenter.default.removeObserver(token)
-            }
-        }
+        let expectation = XCTNSNotificationExpectation(name: .timerUpdated)
 
         // When
         timerManager.stopTimer()
 
         // Then
-        waitForExpectations(timeout: 1.0)
-        // Ensure cleanup
-        if let token = observerToken {
-            NotificationCenter.default.removeObserver(token)
-        }
+        wait(for: [expectation], timeout: 1.0)
     }
 
     // MARK: - Edge Cases

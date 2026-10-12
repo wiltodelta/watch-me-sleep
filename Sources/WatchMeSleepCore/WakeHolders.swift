@@ -7,7 +7,7 @@ import IOKit.pwr_mgt
 /// What is keeping the Mac awake, sorted into the two kinds the night watch
 /// treats differently: media someone may be watching or hearing, and work
 /// someone asked the Mac to finish.
-public struct WakeHolders: Equatable {
+public struct WakeHolders: Equatable, Sendable {
     /// Audio is playing, or an app holds the display on as a video player does.
     public var mediaPlaying: Bool
     /// Processes holding the system itself awake (`caffeinate`, a download, a
@@ -24,7 +24,7 @@ public struct WakeHolders: Equatable {
 }
 
 /// One power assertion, reduced to what classification reads.
-struct PowerAssertion: Equatable {
+struct PowerAssertion: Equatable, Sendable {
     let pid: pid_t
     let processName: String
     let type: String
@@ -143,7 +143,7 @@ enum SystemSignals {
     private static func executablePath(of pid: pid_t) -> String? {
         var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
         guard proc_pidpath(pid, &buffer, UInt32(buffer.count)) > 0 else { return nil }
-        return String(cString: buffer)
+        return String(validating: buffer.prefix { $0 != 0 }.map(UInt8.init(bitPattern:)), as: UTF8.self)
     }
 
     // MARK: - Audio

@@ -152,7 +152,8 @@ extension CameraWatcher {
     /// camera access: a prompt at night, unasked, would be worse than no look,
     /// so without access the verdict is `.unavailable`. One look at a time is
     /// the caller's to keep (`SleepSupervisor`).
-    func checkPresence(completion: @escaping (PresenceCheck.Verdict) -> Void) {
+    @MainActor
+    func checkPresence(completion: @escaping @MainActor (PresenceCheck.Verdict) -> Void) {
         guard Self.isAuthorized else {
             completion(.unavailable)
             return

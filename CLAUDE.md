@@ -11,6 +11,7 @@ You are a **principal Swift/macOS engineer** maintaining a menu bar app that put
 ## Test and lint
 
 - `bash maintain.sh` - the canonical Swift gate.
+- Swift 6 language mode (swift-tools 6.0): UI types are `@MainActor`; a `Timer` or `NotificationCenter` (`queue: .main`) callback enters with `MainActor.assumeIsolated`, a test class touching them is `@MainActor` with `setUp() async throws`, and `Updater.swift` and `maintain.sh` are declared twins (claude-config `bin/check-twins.py`).
 - `swiftlint` must be installed for the lint step (`brew install swiftlint`); `maintain.sh` fails without it. It lints `Sources` and `Tests`. It fails the gate on a file over 500 lines or a function over cyclomatic complexity 10: split by type or extract a helper.
 - The right-click menu opens only on a real right click; checks reach it through the status button's `Show Menu` accessibility custom action (`AXUIElementPerformAction` with its `Name:Show Menu` action name).
 - The app quits on launch if another instance with its bundle id runs; test a second copy beside the installed one under a different `CFBundleIdentifier` (and remove its TCC rows afterwards).

@@ -8,7 +8,10 @@ import os
 /// (`checkPresence`) and the live preview in Settings. The session runs while
 /// either needs it and stops when neither does. Frames are analyzed in memory
 /// with Vision; nothing is recorded or sent anywhere.
-public final class CameraWatcher: NSObject, ObservableObject {
+///
+/// Unchecked `Sendable`: each property states the one queue it is touched on
+/// (main, the session queue or the video queue), and every crossing hops.
+public final class CameraWatcher: NSObject, ObservableObject, @unchecked Sendable {
     public static let shared = CameraWatcher()
 
     /// System Settings > Privacy & Security > Camera.
@@ -47,7 +50,7 @@ public final class CameraWatcher: NSObject, ObservableObject {
     // The running look and its completion: video queue only. The generation
     // (main only) lets a timeout tell its own look from a later one.
     var presenceCheck: PresenceCheck?
-    var presenceCompletion: ((PresenceCheck.Verdict) -> Void)?
+    var presenceCompletion: (@MainActor (PresenceCheck.Verdict) -> Void)?
     var presenceGeneration = 0
 
     private override init() {

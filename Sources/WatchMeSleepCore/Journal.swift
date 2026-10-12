@@ -7,7 +7,11 @@ import os
 /// unless `defaults write com.wiltodelta.watchmesleep Diagnostics.journal -bool true`.
 /// It holds no images, only numbers, verdicts and the names of processes
 /// holding the Mac awake.
-public final class Journal {
+///
+/// Unchecked `Sendable`: the file is written only on `queue`, the formatter is
+/// thread-safe while unmutated, and only tests set the seams, on the main
+/// thread, before the records they read back.
+public final class Journal: @unchecked Sendable {
     public static let shared = Journal()
 
     static let enabledKey = "Diagnostics.journal"

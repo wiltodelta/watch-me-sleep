@@ -33,6 +33,7 @@ struct WatchMeSleepApp: App {
     }
 }
 
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var panel: MenuBarPanelController!
@@ -96,8 +97,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.updateStatusItem()
-            self?.updateSleepWarning()
+            MainActor.assumeIsolated {
+                self?.updateStatusItem()
+                self?.updateSleepWarning()
+            }
         }
 
         // Open the settings window when the panel requests it
@@ -106,7 +109,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.showSettingsWindow()
+            MainActor.assumeIsolated { self?.showSettingsWindow() }
         }
 
         updateStatusItem()

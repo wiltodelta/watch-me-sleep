@@ -8,6 +8,7 @@ import SwiftUI
 ///
 /// The panel never becomes key, so a video player keeps its keyboard (Space
 /// still pauses) while the buttons stay clickable.
+@MainActor
 public final class SleepWarningController {
     /// One panel per display: a film may be on a TV while the Mac sits aside.
     private var panels: [NSPanel] = []

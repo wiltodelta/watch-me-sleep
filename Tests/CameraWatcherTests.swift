@@ -2,6 +2,7 @@ import XCTest
 import AVFoundation
 @testable import WatchMeSleepCore
 
+@MainActor
 final class CameraWatcherTests: XCTestCase {
     /// The test runner holds no camera grant, which is the night's case of a
     /// person who never allowed it: no prompt, no session, an `.unavailable` look.

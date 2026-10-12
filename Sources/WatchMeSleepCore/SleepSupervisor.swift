@@ -24,6 +24,7 @@ public enum NightWatchStatus: Equatable {
 /// awake and, when nobody is using it any more, starts a timer that ends in
 /// sleep (or display off, when work holds the Mac). Replaces the old separate
 /// camera mode and idle auto-start.
+@MainActor
 public final class SleepSupervisor: ObservableObject {
     public static let shared = SleepSupervisor()
 
@@ -62,7 +63,7 @@ public final class SleepSupervisor: ObservableObject {
     var idleSecondsProvider: () -> TimeInterval = { SystemSignals.idleSeconds() }
     var wakeHolders: () -> WakeHolders = { SystemSignals.wakeHolders() }
     var cameraAuthorized: () -> Bool = { CameraWatcher.isAuthorized }
-    var checkPresence: (@escaping (PresenceCheck.Verdict) -> Void) -> Void = {
+    var checkPresence: (@escaping @MainActor (PresenceCheck.Verdict) -> Void) -> Void = {
         CameraWatcher.shared.checkPresence(completion: $0)
     }
     var timer: TimerManager = .shared
@@ -112,7 +113,7 @@ public final class SleepSupervisor: ObservableObject {
         let center = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.willSleepNotification, NSWorkspace.screensDidSleepNotification] {
             center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                self?.stopWatchingNow()
+                MainActor.assumeIsolated { self?.stopWatchingNow() }
             }
         }
     }
@@ -148,8 +149,9 @@ public final class SleepSupervisor: ObservableObject {
             return
         }
         observeTimer()
+        // Scheduled on the main run loop, so it fires on the main thread.
         let timer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
-            self?.tick()
+            MainActor.assumeIsolated { self?.tick() }
         }
         // Nothing here needs second precision; let macOS batch the wakeups.
         timer.tolerance = 2

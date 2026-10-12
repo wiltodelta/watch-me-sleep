@@ -2,6 +2,7 @@ import XCTest
 import AppKit
 @testable import WatchMeSleepCore
 
+@MainActor
 final class NightWatchPolicyTests: XCTestCase {
     private let now = Date()
     private typealias Policy = NightWatchPolicy
@@ -50,6 +51,7 @@ final class NightWatchPolicyTests: XCTestCase {
     }
 }
 
+@MainActor
 final class SleepSupervisorTests: XCTestCase {
     private static let film = WakeHolders(mediaPlaying: true, work: [], videoPlaying: true)
     private static let sound = WakeHolders(mediaPlaying: true, work: [], videoPlaying: false)
@@ -60,11 +62,11 @@ final class SleepSupervisorTests: XCTestCase {
     private var holders = WakeHolders.none
     private var cameraAuthorized = true
     private var looks = 0
-    private var pendingLook: ((PresenceCheck.Verdict) -> Void)?
+    private var pendingLook: (@MainActor (PresenceCheck.Verdict) -> Void)?
     private var slept = false
 
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
+        try await super.setUp()
         var components = DateComponents()
         (components.year, components.month, components.day, components.hour) = (2026, 1, 1, 23)
         clock = Calendar.current.date(from: components)!
@@ -104,14 +106,14 @@ final class SleepSupervisorTests: XCTestCase {
         supervisor.keepsSoundPlaying = false
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         timer.stopTimer()
         timer.now = Date.init
         supervisor.now = Date.init
         supervisor.isEnabled = false
         supervisor.defaults.removePersistentDomain(forName: "SleepSupervisorTests")
         supervisor.defaults = .standard
-        super.tearDown()
+        try await super.tearDown()
     }
 
     private func answer(_ verdict: PresenceCheck.Verdict) {

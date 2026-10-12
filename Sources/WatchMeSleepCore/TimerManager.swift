@@ -2,6 +2,7 @@ import Foundation
 import os
 import AppKit
 
+@MainActor
 public class TimerManager: ObservableObject {
     public static let shared = TimerManager()
 
@@ -92,7 +93,7 @@ public class TimerManager: ObservableObject {
         for name in [NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification] {
             let center = NSWorkspace.shared.notificationCenter
             center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                self?.handleWake()
+                MainActor.assumeIsolated { self?.handleWake() }
             }
         }
     }
@@ -112,8 +113,9 @@ public class TimerManager: ObservableObject {
         targetDate = now().addingTimeInterval(totalTime)
         isTimerActive = true
 
+        // Scheduled on the main run loop, so it fires on the main thread.
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            self?.updateTimer()
+            MainActor.assumeIsolated { self?.updateTimer() }
         }
 
         notifyTimerUpdated()
