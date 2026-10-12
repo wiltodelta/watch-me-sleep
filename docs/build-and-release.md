@@ -31,7 +31,7 @@ and the Sparkle key; the Developer ID certificate expires on 2031-09-17.
 
 ## Sparkle
 
-`Updater` (declared twin of translate-like-me's, checked by claude-config's `bin/check-twins.py`) runs `SPUStandardUpdaterController`
+`Updater` (the same file as translate-like-me's and rota's) runs `SPUStandardUpdaterController`
 with gentle reminders. `create-app.sh` copies `Sparkle.framework` into
 `Contents/Frameworks`, adds the `@executable_path/../Frameworks` rpath, removes
 its XPC services (they exist for sandboxed apps), ships its MIT license, and

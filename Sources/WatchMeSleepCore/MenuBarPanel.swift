@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-// twin: menu-bar-panel - watch-me-sleep and rota keep this file identical
-// except lines marked twin-local (claude-config bin/check-twins.py).
+// Shared by watch-me-sleep and rota: change both copies together
+// (claude-config docs/macos-apps.md, "Shared files").
 
 /// Borderless panel that can take key focus so the hosted SwiftUI controls
 /// (buttons, the Return/Escape default actions) work.

@@ -2,6 +2,8 @@
 
 You are a **principal Swift/macOS engineer** maintaining a menu bar app that puts the Mac to sleep once its user falls asleep: one automatic night watch (`SleepSupervisor`) plus a manual timer (`TimerManager`) that every sleep goes through. SwiftPM; the one dependency is Sparkle (in-place updates, `Updater`; packaging and keys in README "Building and releasing").
 
+Shared rules for our macOS apps: `~/Documents/GitHub/claude-config/docs/macos-apps.md`; this file states only what differs.
+
 ## How to run
 
 - `./create-app.sh` - build and assemble the standalone .app bundle (version from the latest tag, icon compiled from `App Icon.icon` plus `MenuIcons.xcassets` by actool, Sparkle embedded) and sign it with the team's Developer ID (hardened runtime plus the camera entitlement; the hardened runtime blocks the camera without it). The TCC grant the stable signature preserves is Camera. Releases: `RELEASE=1 ./create-app.sh && ./notarize.sh` locally, or a `vX.Y.Z` tag, which CI signs and notarizes from repository secrets (`docs/build-and-release.md`).
@@ -11,7 +13,6 @@ You are a **principal Swift/macOS engineer** maintaining a menu bar app that put
 ## Test and lint
 
 - `bash maintain.sh` - the canonical Swift gate.
-- Swift 6 language mode (swift-tools 6.0): UI types are `@MainActor`; a `Timer` or `NotificationCenter` (`queue: .main`) callback enters with `MainActor.assumeIsolated`, a test class touching them is `@MainActor` with `setUp() async throws`, and `Updater.swift` and `maintain.sh` are declared twins (claude-config `bin/check-twins.py`).
 - `swiftlint` must be installed for the lint step (`brew install swiftlint`); `maintain.sh` fails without it. It lints `Sources` and `Tests`. It fails the gate on a file over 500 lines or a function over cyclomatic complexity 10: split by type or extract a helper.
 - The right-click menu opens only on a real right click; checks reach it through the status button's `Show Menu` accessibility custom action (`AXUIElementPerformAction` with its `Name:Show Menu` action name).
 - The app quits on launch if another instance with its bundle id runs; test a second copy beside the installed one under a different `CFBundleIdentifier` (and remove its TCC rows afterwards).
