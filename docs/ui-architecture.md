@@ -18,6 +18,13 @@ Animating the height change is an open HIG gap: with `sizingOptions` left on, Au
 
 `NSPanel.configureAsStatusPanel()`, shared by the dropdown and the sleep warning, sets `isFloatingPanel` before `level`: the setter resets the level to `.floating`, which silently dropped the panel from `.statusBar` (25) to 3, under any other floating window.
 
+The hosted content has a nearly opaque `windowBackgroundColor` backing. Glass
+tint alone does not bound text contrast in the never-key sleep warning. Keep
+the material outside the measured SwiftUI tree, and verify both panels over
+black, gray and white backdrops after changing either backing or text colors.
+The dropdown closes on key-focus loss or activation of another app, as well as
+outside clicks and Escape. Activation of its own app does not dismiss it.
+
 `capture-screenshots.sh` regenerates the README screenshots. A single-window capture renders Liquid Glass without what sits behind it, as flat gray, so the script puts an opaque backdrop a shade darker than the panel under each window and captures the screen region with a 20 pt margin, shadow included. The panel hangs 1 pt below the menu bar, so the top margin is filled in the backdrop color instead of captured. The backdrop must be opaque: `underPageBackgroundColor` is translucent and let text from the windows behind it into the images. Each region is checked before and after the capture and the image kept only if nothing but the app and the backdrop is in it: a window raised meanwhile would put private content into a public image. It drives the app only through Accessibility identifiers (`startTimer`, `stopTimer`, `openSettings`, `cameraPreview`), never synthetic clicks.
 
 The panel follows the system light/dark appearance. On macOS 26+ the system status-bar menus take the menu bar's appearance instead, so they can be dark while the system is light; do not copy that onto the panel (decided 2026-09-23).
@@ -29,6 +36,11 @@ The panel follows the system light/dark appearance. On macOS 26+ the system stat
 ## Sleep warning panel
 
 `SleepWarningController` (`SleepWarningPanel.swift`) shows the timer's final minute in the top-right corner. It reuses `PanelHostController`, so it carries the same backing and rounding as the dropdown. It is a panel, not a notification, because the Sleep focus and full-screen video hide notifications. It never becomes key (`becomesKeyOnlyIfNeeded`), so a video player keeps its keyboard while the buttons still take a first click. Its buttons draw with `controlActiveState = .key`, so Sleep Now keeps its accent instead of the inactive gray a non-key window gets, as translate-like-me's popup does (changed 2026-10-11). A single-window capture of it renders the glass flat gray, as above.
+
+The warning uses its fixed content width when anchoring the first frame;
+the window's measured width can still be zero before its first layout. Once
+input guarantees postponement, both the warning and timer panel say that the
+Mac stays awake instead of promising sleep at the old deadline.
 
 ## SDK version stamp
 

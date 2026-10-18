@@ -242,6 +242,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setMenuSymbol("gearshape", on: settings)
         menu.addItem(settings)
 
+        let update = NSMenuItem(title: Updater.shared.pendingVersion == nil ? "Check for Updates…" : "Install Update…",
+                                action: #selector(quickCheckForUpdates), keyEquivalent: "")
+        update.target = self
+        let updateSymbol = Updater.shared.pendingVersion == nil ? "arrow.triangle.2.circlepath" : "arrow.down.circle"
+        setMenuSymbol(updateSymbol, on: update)
+        if let version = Updater.shared.pendingVersion { update.toolTip = "Version \(version) is available" }
+        menu.addItem(update)
+
         // The standard selector lets macOS 26+ give the item its system icon.
         menu.addItem(NSMenuItem(title: "Quit Watch Me While I Fall Asleep",
                                 action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -283,6 +291,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func quickStopTimer() {
         timerManager.stopTimer()
+    }
+
+    @objc private func quickCheckForUpdates() {
+        Updater.shared.checkForUpdates()
     }
 
     private var settingsWindow: NSWindow?

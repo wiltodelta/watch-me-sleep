@@ -44,6 +44,7 @@ extension SleepSupervisor {
 
     func persist() {
         guard isLoaded else { return }
+        invalidateLook()
         defaults.set(isEnabled, forKey: Key.enabled)
         defaults.set(bedtimeStart, forKey: Key.bedtimeStart)
         defaults.set(bedtimeEnd, forKey: Key.bedtimeEnd)

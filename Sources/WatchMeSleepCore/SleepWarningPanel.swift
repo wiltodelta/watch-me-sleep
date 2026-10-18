@@ -27,9 +27,10 @@ public final class SleepWarningController {
             panels = screens.map { _ in makePanel() }
         }
         for (panel, screen) in zip(panels, screens) {
+            panel.contentView?.layoutSubtreeIfNeeded()
             let visibleFrame = screen.visibleFrame
             panel.setFrameTopLeftPoint(NSPoint(
-                x: visibleFrame.maxX - panel.frame.width - screenEdgeInset,
+                x: visibleFrame.maxX - width - screenEdgeInset,
                 y: visibleFrame.maxY - screenEdgeInset
             ))
             if !panel.isVisible { panel.orderFrontRegardless() }
@@ -103,7 +104,7 @@ struct SleepWarningView: View {
             Button("Sleep Now") {
                 timerManager.sleepNow()
             }
-            .buttonStyle(.borderedProminent)
+            .readableProminentAction()
             .accessibilityIdentifier("sleepNow")
         }
         .controlSize(.regular)
@@ -123,7 +124,8 @@ struct SleepWarningView: View {
     /// What zero really does (UX-04): with work holding the Mac, only the
     /// display goes off, so the warning must not promise sleep.
     private var title: String {
-        timerManager.endsWithDisplayOff
+        if timerManager.isUserActive { return "Your Mac will stay awake" }
+        return timerManager.endsWithDisplayOff
             ? "Turning the display off in \(seconds) s"
             : "Going to sleep in \(seconds) s"
     }

@@ -255,6 +255,24 @@ final class TimerManagerTests: XCTestCase {
 
     // MARK: - Wake Tests
 
+    func testWakeJustAfterDeadlineDropsTimerWithoutPostponing() {
+        var clock = Date()
+        timerManager.now = { clock }
+        timerManager.startTimer(hours: 0.25)
+        clock += 880
+        timerManager.tick()
+        XCTAssertTrue(timerManager.isInFinalPhase)
+
+        clock += 40
+        idleSeconds = 1
+        timerManager.handleWake()
+        timerManager.tick()
+
+        XCTAssertFalse(timerManager.isTimerActive)
+        XCTAssertFalse(didTriggerSleep)
+        XCTAssertEqual(fakeVolume.restores, 1)
+    }
+
     func testATimerThatRanOutDuringSleepStopsOnTheNextTick() {
         let advance = startFrozenTimer()
         advance(15 * 60 - 30)

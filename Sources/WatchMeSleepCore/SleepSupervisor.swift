@@ -90,6 +90,15 @@ public final class SleepSupervisor: ObservableObject {
     var isLooking = false
     /// When the running decision look started: input after it outdates its answer.
     private var lookStarted: Date = .distantPast
+    /// Settings and nap transitions invalidate an answer even if watching is
+    /// enabled again before the camera finishes.
+    private var lookGeneration = 0
+
+    func invalidateLook() { lookGeneration += 1 }
+
+    private var mayLook: Bool {
+        isEnabled && cameraUsable && (isWatchingNow || isWithinWindow(now()))
+    }
     /// What keeps the Mac awake, read once per poll while watching.
     private var holders = WakeHolders.none
     /// The running timer is the quiet Mac's, which media starting overrules.
@@ -127,6 +136,7 @@ public final class SleepSupervisor: ObservableObject {
 
     public func stopWatchingNow() {
         guard isWatchingNow else { return }
+        invalidateLook()
         Journal.shared.record("nap", ["on": false])
         isWatchingNow = false
         refreshStatus()
@@ -269,22 +279,25 @@ public final class SleepSupervisor: ObservableObject {
     private func look() {
         isLooking = true
         lookStarted = now()
+        let generation = lookGeneration
         setStatus(.looking)
         checkPresence { [weak self] verdict in
-            self?.handle(verdict)
+            self?.handle(verdict, generation: generation)
         }
     }
 
-    private func handle(_ verdict: PresenceCheck.Verdict) {
+    private func handle(_ verdict: PresenceCheck.Verdict, generation: Int) {
         isLooking = false
         log.info("Camera look: \(String(describing: verdict), privacy: .public)")
         // Any input since the look began outdates its answer, as does a timer
         // started meanwhile.
         let sinceLook = now().timeIntervalSince(lookStarted)
-        guard idleSecondsProvider() >= max(Self.inUseIdle, sinceLook), !timer.isTimerActive else {
+        guard generation == lookGeneration, mayLook,
+              idleSecondsProvider() >= max(Self.inUseIdle, sinceLook), !timer.isTimerActive else {
             Journal.shared.record("look.ignored", context([
                 "verdict": String(describing: verdict), "timerRunning": timer.isTimerActive
             ]))
+            refreshStatus()
             return
         }
 
@@ -336,14 +349,18 @@ public final class SleepSupervisor: ObservableObject {
     /// The final minute of its own timer: one more look, and open eyes count as
     /// someone still watching, like a touch of the mouse.
     private func lookInFinalPhase(someoneThere: @escaping () -> Void) {
-        guard !isLooking, cameraUsable else {
+        guard !isLooking, mayLook else {
             return Journal.shared.record("look.skipped", context(["kind": "final minute", "looking": isLooking]))
         }
         isLooking = true
+        let generation = lookGeneration
         Journal.shared.record("look", context(["kind": "final minute"]))
         checkPresence { [weak self] verdict in
             guard let self else { return }
             self.isLooking = false
+            guard generation == self.lookGeneration, self.mayLook else {
+                return Journal.shared.record("look.ignored", self.context(["kind": "final minute"]))
+            }
             let fields: [String: Any] = ["kind": "final minute", "verdict": String(describing: verdict)]
             Journal.shared.record("look.result", self.context(fields))
             guard verdict == .awake else { return }

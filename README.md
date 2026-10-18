@@ -151,6 +151,9 @@ For a nap outside those hours, click **Watch Now for a Nap** in the panel. The
 night watch then works as at night until the Mac or its display goes to sleep;
 **End Nap** stops it sooner.
 
+Camera checks stay within bedtime or an active nap. Turning off the night
+watch or camera discards a pending result.
+
 ### Timer
 
 1. Click the moon icon.
@@ -164,8 +167,8 @@ night watch then works as at night until the Mac or its display goes to sleep;
    was already asleep (lid closed) is dropped on wake.
 
 Right-click the icon for a quick menu that shows what the night watch is doing,
-starts a timer with the panel's presets, stops the current one, or opens
-Settings. **Help > Watch Me While I Fall Asleep Help** opens this README.
+starts a timer with the panel's presets, stops the current one, opens Settings,
+or checks for updates. **Help > Watch Me While I Fall Asleep Help** opens this README.
 
 ## Settings
 

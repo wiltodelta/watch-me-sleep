@@ -36,7 +36,7 @@ the names of processes holding the Mac awake.
 | `look.skipped` | A final-minute look could not run | `looking` (another look was running) plus context |
 | `camera.look` | A look ends, measured | `verdict`, `frames`, `seconds`, `faceSeconds`, `openSeconds`, `darkSeconds`, `meanLuma` |
 | `look.result` | The night watch reads the verdict | `verdict` as used (nobody there before any face reads `unclear`) plus context |
-| `look.ignored` | Input or a timer came during the look | `verdict`, `timerRunning` plus context |
+| `look.ignored` | Input, a timer, settings or the watch window made the answer stale | `verdict` and `timerRunning` for decision looks, `kind` for final-minute looks, plus context |
 | `arm` | The night watch starts a timer | `minutes`, `reason`, `looksAgain` plus context |
 | `quietTimer.overruled` | Media started during the quiet Mac's timer | context |
 | `nap` | Watch Now for a Nap starts or ends | `on`, and `why` when bedtime took over |
@@ -45,7 +45,9 @@ the names of processes holding the Mac awake.
 | `timer.someoneThere` | Someone is at the Mac in a hand-set timer's final minute | `how` |
 | `timer.postponed` | A hand-set timer moves on at zero | `minutes` |
 | `timer.stop` | A timer stops before zero | `reason` (`input`, `open eyes`, `media started`, `stopped by hand`, `replaced`, `ran out while the Mac slept`), `remaining` |
-| `sleep` | The app sleeps the Mac or turns the display off | `command`, `work`, `byHand` |
+| `sleep.request` | The app requests sleep or display off | `command`, `work`, `byHand` |
+| `sleep` | The power command exits successfully; the `system` event confirms the OS transition | `command`, `work`, `byHand` |
+| `sleep.failed` | The power command cannot launch or exits unsuccessfully; volume is restored | `command`, `error` |
 | `system` | macOS sleeps, wakes, or turns the display off or on | `what` |
 
 Context, on night watch events: `idle` (seconds without input at the latest
@@ -61,5 +63,5 @@ jq -c 'select(.t >= "2026-10-08T21:00")' "$J"
 # The camera's numbers, to calibrate the darkness threshold (PresenceCheck.darkLuma)
 jq -c 'select(.event == "camera.look") | {t, verdict, meanLuma, faceSeconds, darkSeconds}' "$J"
 # How each night ended
-jq -c 'select(.event == "sleep" or .event == "timer.stop" or .event == "system")' "$J"
+jq -c 'select(.event | startswith("sleep") or . == "timer.stop" or . == "system")' "$J"
 ```

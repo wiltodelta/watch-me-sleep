@@ -68,6 +68,8 @@ public class TimerManager: ObservableObject {
     // Seam for tests: performs the sleep. Defaults to putting the computer to
     // sleep; tests override it so the suite never sleeps the machine.
     var sleepHandler: (SleepKind) -> Void = { _ in }
+    var powerCommand: (String) async -> Result<Void, PowerCommand.Failure> = { await PowerCommand.run($0) }
+    var showPowerFailure: (String, String) -> Void = { presentPowerFailure($0, detail: $1) }
 
     // Seam for tests: the current-time provider. Production uses the wall clock;
     // tests inject a controllable clock so they can advance time synchronously
@@ -161,10 +163,13 @@ public class TimerManager: ObservableObject {
         notifyTimerUpdated()
     }
 
-    /// Sleep left the volume faded; bring it back. A timer that ran out during
-    /// the sleep is stopped by its next tick (`updateTimer`), whichever of the two
-    /// runs first after wake.
+    /// A wake is direct evidence of sleep, even when it crossed the deadline
+    /// by less than the late-tick allowance used for App Nap.
     func handleWake() {
+        if let targetDate, targetDate <= now() {
+            stopTimer(reason: .sleptThrough)
+            return
+        }
         volume.restore()
     }
 
@@ -268,41 +273,43 @@ public class TimerManager: ObservableObject {
     /// Sleeps the Mac. At the end of a timer, while work holds the Mac awake
     /// (`caffeinate`, a download, a build), only the display goes off: sleeping
     /// would cut that work off, and the Mac sleeps by itself once it lets go.
-    private func putComputerToSleep(_ kind: SleepKind) {
+    func putComputerToSleep(_ kind: SleepKind) {
         // The same reading `endsWithDisplayOff` promised from.
         let work = kind == .unlessWorkHolds ? workHolders() : []
         let command = work.isEmpty ? "sleepnow" : "displaysleepnow"
-        Journal.shared.record("sleep", ["command": command, "work": work, "byHand": kind == .always])
+        Journal.shared.record("sleep.request", ["command": command, "work": work, "byHand": kind == .always])
         if !work.isEmpty {
             let holders = work.joined(separator: ", ")
             Logger.app("timer").info("Work holds the Mac awake (\(holders, privacy: .public)); display off only")
         }
 
-        let task = Process()
-        task.launchPath = "/usr/bin/pmset"
-        task.arguments = [command]
-
-        do {
-            try task.run()
-        } catch {
-            Logger.app("timer").error("Failed to put the Mac to sleep: \(error.localizedDescription, privacy: .public)")
-
-            // Show alert to user
-            DispatchQueue.main.async {
-                NSApp.setActivationPolicy(.regular)
-                NSApp.activate()
-
-                let alert = NSAlert()
-                // What happened, why, and what to do now (UX-13).
-                alert.messageText = "Couldn't put your Mac to sleep"
-                alert.informativeText = "\(error.localizedDescription)\n\nChoose Apple menu > Sleep instead."
-                alert.alertStyle = .warning
-                alert.addButton(withTitle: "OK")
-                alert.runModal()
-
-                NSApp.setActivationPolicy(.accessory)
+        Task {
+            switch await powerCommand(command) {
+            case .success:
+                Journal.shared.record("sleep", ["command": command, "work": work, "byHand": kind == .always])
+            case .failure(let failure):
+                volume.restore()
+                Journal.shared.record("sleep.failed", ["command": command, "error": failure.message])
+                Logger.app("timer").error(
+                    "Power command \(command, privacy: .public) failed: \(failure.message, privacy: .public)"
+                )
+                showPowerFailure(command, failure.message)
             }
         }
+    }
+
+    private static func presentPowerFailure(_ command: String, detail: String) {
+        let policy = NSApp.activationPolicy()
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate()
+        let alert = NSAlert()
+        alert.messageText = command == "displaysleepnow"
+            ? "Couldn't turn off your display" : "Couldn't put your Mac to sleep"
+        alert.informativeText = "\(detail)\n\nChoose Apple menu > Sleep instead."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+        NSApp.setActivationPolicy(policy)
     }
 
     private func notifyTimerUpdated() {

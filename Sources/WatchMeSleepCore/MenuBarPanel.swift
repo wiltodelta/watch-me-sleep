@@ -52,7 +52,12 @@ final class PanelHostController: NSViewController {
         // greedy `maxWidth: .infinity` content collapses to its minimum and the
         // panel comes out too narrow.
         fixedWidth = width
-        host = NSHostingController(rootView: AnyView(rootView.frame(width: width)))
+        // A system-color content backing bounds contrast even on non-key
+        // warnings, where glass tint alone does not keep text readable.
+        host = NSHostingController(rootView: AnyView(
+            rootView.frame(width: width)
+                .background(Color(nsColor: .windowBackgroundColor).opacity(0.96))
+        ))
         super.init(nibName: nil, bundle: nil)
     }
     @available(*, unavailable)
@@ -136,6 +141,8 @@ public final class MenuBarPanelController {
     private var localMonitor: Any?
     private var globalMonitor: Any?
     private var resizeObserver: NSObjectProtocol?
+    private var resignKeyObserver: NSObjectProtocol?
+    private var activationObserver: NSObjectProtocol?
     /// Screen-space top-left the panel grows down from, so it stays pinned under
     /// the menu bar when the content height changes between modes.
     private var anchorTopLeft: NSPoint?
@@ -207,6 +214,7 @@ public final class MenuBarPanelController {
         anchorTopLeft = topLeft
         startObservingResize()
         panel.makeKeyAndOrderFront(nil)
+        startMonitoring()
     }
 
     /// The panel's window number, for `screencapture -l`.
@@ -246,6 +254,22 @@ public final class MenuBarPanelController {
     private func startMonitoring() {
         stopMonitoring()
 
+        resignKeyObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification, object: panel, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.close() }
+        }
+        // A nonactivating panel may belong to an accessory app while another
+        // app stays active. Observe workspace activation as well as key focus
+        // so Command-Tab dismisses it in that case too.
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] notification in
+            let activated = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            guard activated?.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
+            MainActor.assumeIsolated { self?.close() }
+        }
+
         // Clicks in other apps (or on the desktop) close the panel.
         globalMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown]
@@ -267,6 +291,14 @@ public final class MenuBarPanelController {
     }
 
     private func stopMonitoring() {
+        if let observer = resignKeyObserver {
+            NotificationCenter.default.removeObserver(observer)
+            resignKeyObserver = nil
+        }
+        if let observer = activationObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+            activationObserver = nil
+        }
         if let monitor = globalMonitor {
             NSEvent.removeMonitor(monitor)
             globalMonitor = nil

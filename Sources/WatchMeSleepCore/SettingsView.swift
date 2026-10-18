@@ -26,6 +26,7 @@ public struct SettingsView: View {
             updatesSection
         }
         .formStyle(.grouped)
+        .background(Color(nsColor: .windowBackgroundColor))
         // Access can change in System Settings while this window stays alive
         // between openings; coming back brings the app to the front.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in

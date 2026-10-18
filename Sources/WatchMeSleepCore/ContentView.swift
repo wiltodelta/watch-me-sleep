@@ -155,33 +155,26 @@ struct PresetButton: View {
     private var isSelected: Bool { selectedHours == hours }
 
     var body: some View {
-        // The selected preset changes style, not just tint, so the choice does
-        // not rely on color alone (HIG); two prominent buttons per view at most.
+        // A checkmark communicates selection without competing with Start Timer.
         Button {
             selectedHours = hours
         } label: {
-            Text(DurationFormat.compact(hours: hours))
-                .frame(maxWidth: .infinity)
+            HStack(spacing: 4) {
+                if isSelected {
+                    Image(systemName: "checkmark").font(.caption2.weight(.semibold))
+                }
+                Text(DurationFormat.compact(hours: hours))
+            }
+            .frame(maxWidth: .infinity)
         }
-        .modifier(PresetStyle(isSelected: isSelected))
+        .buttonStyle(.bordered)
+        .foregroundStyle(.primary)
         .controlSize(.regular)
         .durationAccessibility(visible: DurationFormat.compact(hours: hours),
                                spoken: DurationFormat.words(hours: hours))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-}
-
-private struct PresetStyle: ViewModifier {
-    let isSelected: Bool
-
-    func body(content: Content) -> some View {
-        if isSelected {
-            content.buttonStyle(.borderedProminent)
-        } else {
-            content.buttonStyle(.bordered)
-        }
-    }
 }
 
 struct ActiveTimerView: View {
@@ -221,10 +214,13 @@ struct ActiveTimerView: View {
 
                 // What zero really does (UX-04): with work holding the Mac,
                 // only the display goes off.
-                Text("\(timerManager.endsWithDisplayOff ? "Display off" : "Sleep") at "
-                     + formatTargetTime(timerManager.remainingTime))
+                Text(timerManager.isUserActive
+                     ? "Staying awake for another " + DurationFormat.words(minutes: TimerManager.postponeMinutes)
+                     : "\(timerManager.endsWithDisplayOff ? "Display off" : "Sleep") at "
+                        + formatTargetTime(timerManager.remainingTime))
                     .font(.callout)
                     .foregroundStyle(Color.secondaryText)
+                    .multilineTextAlignment(.center)
             }
             .padding(20)
             .padding(.top, 12)

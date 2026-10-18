@@ -134,6 +134,88 @@ final class SleepSupervisorTests: XCTestCase {
         return Calendar.current.date(from: components)!
     }
 
+    func testLookCompletingAfterBedtimeCannotArmTimer() {
+        clock = at(7, 59).addingTimeInterval(50)
+        idleFor(minutes: 10)
+        XCTAssertTrue(supervisor.isLooking)
+        XCTAssertNotNil(pendingLook)
+        clock += 20
+        idle += 20
+        XCTAssertFalse(supervisor.isWithinWindow(clock))
+
+        answer(.asleep)
+
+        XCTAssertFalse(timer.isTimerActive)
+        XCTAssertFalse(supervisor.isLooking)
+    }
+
+    func testEndingNapInvalidatesPendingLookEvenIfNapRestarts() {
+        clock = at(13, 0)
+        supervisor.watchNow()
+        idleFor(minutes: 10)
+        XCTAssertNotNil(pendingLook)
+        supervisor.stopWatchingNow()
+        supervisor.watchNow()
+
+        answer(.asleep)
+
+        XCTAssertFalse(timer.isTimerActive)
+    }
+
+    func testFinalMinuteDoesNotStartCameraOutsideBedtime() {
+        clock = at(7, 59)
+        idleFor(minutes: 10)
+        answer(.asleep)
+        XCTAssertTrue(timer.isTimerActive)
+        clock += 241
+        idle += 241
+
+        timer.tick()
+
+        XCTAssertTrue(timer.isInFinalPhase)
+        XCTAssertEqual(looks, 1)
+    }
+
+    func testDisablingAndReenablingCameraInvalidatesPendingLook() {
+        idleFor(minutes: 10)
+        XCTAssertNotNil(pendingLook)
+        supervisor.usesCamera = false
+        supervisor.usesCamera = true
+
+        answer(.asleep)
+
+        XCTAssertFalse(timer.isTimerActive)
+    }
+
+    func testScheduleAndEnableChangesInvalidatePendingLook() {
+        idleFor(minutes: 10)
+        XCTAssertNotNil(pendingLook)
+        supervisor.isEnabled = false
+        supervisor.bedtimeEnd = 7 * 60
+        supervisor.isEnabled = true
+        supervisor.bedtimeEnd = 8 * 60
+
+        answer(.asleep)
+
+        XCTAssertFalse(timer.isTimerActive)
+    }
+
+    func testFinalMinuteAnswerAfterDisablingWatchDoesNotStopTimer() {
+        idleFor(minutes: 10)
+        answer(.asleep)
+        clock += 241
+        idle += 241
+        timer.tick()
+        XCTAssertNotNil(pendingLook)
+        XCTAssertTrue(supervisor.isLooking)
+        supervisor.isEnabled = false
+
+        answer(.awake)
+
+        XCTAssertTrue(timer.isTimerActive)
+        XCTAssertFalse(supervisor.isLooking)
+    }
+
     func testBedtimeIsMinutePrecise() {
         supervisor.bedtimeStart = 22 * 60 + 30
         supervisor.bedtimeEnd = 6 * 60 + 45

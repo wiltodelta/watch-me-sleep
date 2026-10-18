@@ -50,7 +50,7 @@ struct NightWatchStatusView: View {
                     Label(supervisor.isWatchingNow ? "Nap until the Mac sleeps" : supervisor.bedtimeRangeText,
                           systemImage: supervisor.isWatchingNow ? "moon.zzz" : "bed.double")
                     if supervisor.cameraUsable {
-                        Label("Camera on", systemImage: "video")
+                        Label("Camera enabled", systemImage: "video")
                     }
                     if supervisor.isWatchingNow {
                         Spacer(minLength: 0)
