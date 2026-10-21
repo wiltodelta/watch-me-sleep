@@ -35,6 +35,7 @@ the names of processes holding the Mac awake.
 | `look` | A final-minute camera look starts (a decision look shows as `status` `looking`) | `kind` plus context |
 | `look.skipped` | A final-minute look could not run | `looking` (another look was running) plus context |
 | `camera.look` | A look ends, measured | `verdict`, `frames`, `seconds`, `faceSeconds`, `openSeconds`, `darkSeconds`, `meanLuma` |
+| `camera.cancel` | A pending look is discarded and its camera ownership released; an open preview may keep the session running | none |
 | `look.result` | The night watch reads the verdict | `verdict` as used (nobody there before any face reads `unclear`) plus context |
 | `look.ignored` | Input, a timer, settings or the watch window made the answer stale | `verdict` and `timerRunning` for decision looks, `kind` for final-minute looks, plus context |
 | `arm` | The night watch starts a timer | `minutes`, `reason`, `looksAgain` plus context |
@@ -53,6 +54,10 @@ the names of processes holding the Mac awake.
 Context, on night watch events: `idle` (seconds without input at the latest
 poll), `media`, `video`, `work`, `nap`, `cameraUsable`, `faceSeen`,
 `unclearLooks`, `acted`.
+
+For `camera.look`, `unavailable` also covers a timeout with some frames but
+less than the full observation duration. Frame stalls do not count as observed
+time and cannot produce an `absent` verdict.
 
 ## Read a night
 

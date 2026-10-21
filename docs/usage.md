@@ -41,7 +41,10 @@ night watch then works as at night until the Mac or its display goes to sleep;
 **End Nap** stops it sooner.
 
 Camera checks stay within bedtime or an active nap. Turning off the night
-watch or camera discards a pending result.
+watch or camera cancels a pending check and releases its camera use. Ending a
+nap, returning to the Mac, or leaving bedtime also cancels an ongoing check.
+An open Settings preview keeps its own camera use until you hide it or close
+Settings. A stalled or incomplete check cannot establish that nobody is there.
 
 ## Timer
 
@@ -54,6 +57,10 @@ watch or camera discards a pending result.
    volume fades. Leave it alone and the Mac sleeps; use the mouse or keyboard
    and it stays awake another 30 minutes. A timer that ran out while the Mac
    was already asleep (lid closed) is dropped on wake.
+
+If the audio output changes during the fade, the previous device's volume is
+restored where available and the new output fades from its own volume. Manual
+volume changes are preserved.
 
 Right-click the icon for a quick menu that shows what the night watch is doing,
 starts a timer with the panel's presets, stops the current one, opens Settings,
@@ -71,7 +78,8 @@ hidden).
   off again with **Hide** or when Settings closes. Check it sitting or lying
   where you usually watch from. **When only sound plays**: stop it once you are asleep, or keep
   it playing.
-- **Startup**: launch at login.
+- **Startup**: launch at login. Changes made in System Settings appear when
+  you return to the app or open its Settings again.
 - **Updates**: current version, automatic daily checks on or off, and a **Check
   for Updates…** button.
 

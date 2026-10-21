@@ -17,6 +17,9 @@ protocol VolumeControl: AnyObject {
 /// If the person changes the volume while it fades, they have taken over: the
 /// fade stops and `restore()` leaves their setting in place.
 final class SystemVolumeFader: VolumeControl {
+    private let defaultOutputDevice: () -> AudioDeviceID?
+    private let readVolume: (AudioDeviceID) -> Float32?
+    private let writeVolume: (Float32, AudioDeviceID) -> Bool
     private var saved: (device: AudioDeviceID, volume: Float32)?
     private var lastSet: Float32?
     private let log = Logger.app("volume")
@@ -25,17 +28,29 @@ final class SystemVolumeFader: VolumeControl {
     /// to its own step, so only a larger difference counts as the person's.
     private let takeoverThreshold: Float32 = 0.03
 
+    init(
+        defaultOutputDevice: @escaping () -> AudioDeviceID? = { CoreAudioProperty.defaultOutputDevice() },
+        readVolume: @escaping (AudioDeviceID) -> Float32? = { SystemVolumeFader.volume(of: $0) },
+        writeVolume: @escaping (Float32, AudioDeviceID) -> Bool = { SystemVolumeFader.setVolume($0, of: $1) }
+    ) {
+        self.defaultOutputDevice = defaultOutputDevice
+        self.readVolume = readVolume
+        self.writeVolume = writeVolume
+    }
+
     func fade(to fraction: Double) {
+        let device = defaultOutputDevice()
+        if let saved, saved.device != device { restore() }
         if saved == nil {
-            guard let device = CoreAudioProperty.defaultOutputDevice(),
-                let volume = Self.volume(of: device) else { return }
+            guard let device,
+                let volume = readVolume(device) else { return }
             saved = (device, volume)
             log.info("Fading volume from \(volume, privacy: .public)")
         }
         guard let saved, !personTookOver(saved.device) else { return }
 
         let target = saved.volume * Float32(min(max(fraction, 0), 1))
-        if Self.setVolume(target, of: saved.device) {
+        if writeVolume(target, saved.device) {
             lastSet = target
         }
     }
@@ -50,13 +65,13 @@ final class SystemVolumeFader: VolumeControl {
             log.info("Volume changed during the fade; leaving it")
             return
         }
-        if Self.setVolume(saved.volume, of: saved.device) {
+        if writeVolume(saved.volume, saved.device) {
             log.info("Restored volume to \(saved.volume, privacy: .public)")
         }
     }
 
     private func personTookOver(_ device: AudioDeviceID) -> Bool {
-        guard let lastSet, let current = Self.volume(of: device) else { return false }
+        guard let lastSet, let current = readVolume(device) else { return false }
         return abs(current - lastSet) > takeoverThreshold
     }
 

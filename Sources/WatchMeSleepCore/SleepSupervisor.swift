@@ -66,6 +66,7 @@ public final class SleepSupervisor: ObservableObject {
     var checkPresence: (@escaping @MainActor (PresenceCheck.Verdict) -> Void) -> Void = {
         CameraWatcher.shared.checkPresence(completion: $0)
     }
+    var cancelPresence: () -> Void = { CameraWatcher.shared.cancelPresenceCheck() }
     var timer: TimerManager = .shared
     var defaults: UserDefaults = .standard
 
@@ -94,7 +95,12 @@ public final class SleepSupervisor: ObservableObject {
     /// enabled again before the camera finishes.
     private var lookGeneration = 0
 
-    func invalidateLook() { lookGeneration += 1 }
+    func invalidateLook() {
+        lookGeneration += 1
+        guard isLooking else { return }
+        isLooking = false
+        cancelPresence()
+    }
 
     private var mayLook: Bool {
         isEnabled && cameraUsable && (isWatchingNow || isWithinWindow(now()))
@@ -135,8 +141,8 @@ public final class SleepSupervisor: ObservableObject {
     }
 
     public func stopWatchingNow() {
-        guard isWatchingNow else { return }
         invalidateLook()
+        guard isWatchingNow else { return }
         Journal.shared.record("nap", ["on": false])
         isWatchingNow = false
         refreshStatus()
@@ -190,6 +196,10 @@ public final class SleepSupervisor: ObservableObject {
 
     // MARK: - Tick
 
+    private func cancelLookIfNeeded(watching: Bool, inUse: Bool) {
+        if isLooking, !watching || inUse { invalidateLook() }
+    }
+
     func tick() {
         let idle = idleSecondsProvider()
         lastIdle = idle
@@ -212,6 +222,7 @@ public final class SleepSupervisor: ObservableObject {
             isWatchingNow = false // Bedtime takes over the nap.
         }
         let watching = inWindow || isWatchingNow
+        cancelLookIfNeeded(watching: watching, inUse: inUse)
         holders = watching ? wakeHolders() : .none
         if isSoundOnlyPlaying != holders.soundOnly { isSoundOnlyPlaying = holders.soundOnly }
         if timer.isTimerActive, !overruleQuietTimer(watching: watching) { return .timerRunning }
@@ -287,7 +298,7 @@ public final class SleepSupervisor: ObservableObject {
     }
 
     private func handle(_ verdict: PresenceCheck.Verdict, generation: Int) {
-        isLooking = false
+        if generation == lookGeneration { isLooking = false }
         log.info("Camera look: \(String(describing: verdict), privacy: .public)")
         // Any input since the look began outdates its answer, as does a timer
         // started meanwhile.
@@ -357,7 +368,7 @@ public final class SleepSupervisor: ObservableObject {
         Journal.shared.record("look", context(["kind": "final minute"]))
         checkPresence { [weak self] verdict in
             guard let self else { return }
-            self.isLooking = false
+            if generation == self.lookGeneration { self.isLooking = false }
             guard generation == self.lookGeneration, self.mayLook else {
                 return Journal.shared.record("look.ignored", self.context(["kind": "final minute"]))
             }

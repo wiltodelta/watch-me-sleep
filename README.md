@@ -111,8 +111,8 @@ Frames are analyzed locally with Apple's Vision and Core Image frameworks.
 Automatic camera checks run only during bedtime or an active nap. The
 Settings preview runs only while you show it.
 
-A dark or unclear picture isn't treated as proof that you're asleep. An
-empty frame counts only after the camera has seen a face during the same
+A dark, incomplete or stalled camera check isn't treated as proof that you're
+asleep. An empty frame counts only after the camera has seen a face during the same
 stretch without input. Detection can still be imperfect; the
 [eye-detection notes](docs/eye-detection.md) explain the method, measurements
 and limitations.

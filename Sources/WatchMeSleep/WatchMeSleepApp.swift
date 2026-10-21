@@ -312,6 +312,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindow: NSWindow?
 
     @objc private func showSettingsWindow() {
+        LaunchAtLoginManager.shared.checkStatus()
         // Dismiss the dropdown panel so it doesn't linger behind the settings window.
         panel.close()
 

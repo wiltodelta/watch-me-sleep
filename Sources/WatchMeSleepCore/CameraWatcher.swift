@@ -47,13 +47,23 @@ public final class CameraWatcher: NSObject, ObservableObject, @unchecked Sendabl
     /// Shadow of `videoAspectRatio` on the video queue, for the same reason.
     private var aspectRatioShadow: CGFloat?
 
-    // The running look and its completion: video queue only. The generation
-    // (main only) lets a timeout tell its own look from a later one.
-    var presenceCheck: PresenceCheck?
-    var presenceCompletion: (@MainActor (PresenceCheck.Verdict) -> Void)?
+    // The running look and its answer: video queue only.
+    var presenceLook: PresenceLook?
+    // Main only: invalidates queued answers and timeouts after cancellation.
     var presenceGeneration = 0
 
-    private override init() {
+    // Hardware seams let lifecycle tests use real ownership and queue ordering.
+    let cameraAuthorized: () -> Bool
+    private let setSessionRunning: @MainActor (CameraWatcher, Bool) -> Void
+
+    init(
+        cameraAuthorized: @escaping () -> Bool = { CameraWatcher.isAuthorized },
+        setSessionRunning: @escaping @MainActor (CameraWatcher, Bool) -> Void = { watcher, running in
+            if running { watcher.startSession() } else { watcher.stopSession() }
+        }
+    ) {
+        self.cameraAuthorized = cameraAuthorized
+        self.setSessionRunning = setSessionRunning
         super.init()
     }
 
@@ -70,7 +80,7 @@ public final class CameraWatcher: NSObject, ObservableObject, @unchecked Sendabl
     }
 
     /// The Settings preview appears or goes away.
-    public func setPreviewActive(_ active: Bool) {
+    @MainActor public func setPreviewActive(_ active: Bool) {
         if active {
             acquire(.preview)
         } else {
@@ -81,19 +91,19 @@ public final class CameraWatcher: NSObject, ObservableObject, @unchecked Sendabl
     // MARK: - Session ownership
 
     /// Never prompts: without access there is no session to start.
-    func acquire(_ user: User) {
-        guard Self.isAuthorized else { return }
+    @MainActor func acquire(_ user: User) {
+        guard cameraAuthorized() else { return }
         let wasIdle = users.isEmpty
         users.insert(user)
-        if wasIdle { startSession() }
+        if wasIdle { setSessionRunning(self, true) }
     }
 
-    func release(_ user: User) {
+    @MainActor func release(_ user: User) {
         guard users.remove(user) != nil, users.isEmpty else { return }
-        stopSession()
+        setSessionRunning(self, false)
     }
 
-    private func startSession() {
+    @MainActor private func startSession() {
         Logger.app("camera").info("Camera on for \(String(describing: self.users), privacy: .public)")
         sessionQueue.async {
             self.configureSessionIfNeeded()
@@ -173,12 +183,12 @@ public final class CameraWatcher: NSObject, ObservableObject, @unchecked Sendabl
         // narrow open eyes for closed, and Core Image's blink classifier
         // disagrees with it on exactly those (`EyeReading`).
         let eyes = EyeReading.read(faces: request.results, image: CIImage(cvPixelBuffer: pixelBuffer),
-                                   detector: blinkDetector, deciding: presenceCheck != nil)
+                                   detector: blinkDetector, deciding: presenceLook != nil)
 
         setFaceDetected(eyes != nil)
         let time = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sampleBuffer))
         // Brightness matters only to a running look.
-        recordPresence(eyes: eyes, at: time, luma: presenceCheck == nil ? nil : Self.meanLuma(pixelBuffer))
+        recordPresence(eyes: eyes, at: time, luma: presenceLook == nil ? nil : Self.meanLuma(pixelBuffer))
     }
 
     /// Mean luma on 0...1, sampling the luma plane of a full-range 4:2:0

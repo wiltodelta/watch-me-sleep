@@ -20,7 +20,7 @@ struct PresenceCheck {
         /// broken up by a lost face), or frames too dark to find one: not to be
         /// taken for either.
         case unclear
-        /// The camera could not be used (no access, no frames).
+        /// The camera could not be used, or delivered too little observation time.
         case unavailable
     }
 
@@ -131,9 +131,9 @@ struct PresenceCheck {
         return summary
     }
 
-    /// The verdict for a look cut short, or one that ran its full length.
+    /// Absence requires the whole look. A timeout is not observation time.
     var finalVerdict: Verdict {
-        guard frames > 0 else { return .unavailable }
+        guard frames > 0, reached(elapsed, lookSeconds) else { return .unavailable }
         guard faceSeconds <= elapsed * absentFaceShare else { return .unclear }
         // Mostly black frames (a dark room, a covered lens) cannot tell an
         // empty bed from a sleeper: unclear, not nobody there.
@@ -144,6 +144,12 @@ struct PresenceCheck {
 // MARK: - Running a check on the camera
 
 extension CameraWatcher {
+    struct PresenceLook {
+        var check = PresenceCheck()
+        let completion: @MainActor (PresenceCheck.Verdict) -> Void
+        let generation: Int
+    }
+
     /// Longest a look may hold the camera, frames or not; a camera that never
     /// delivers (lid closed, taken by another app) ends as `.unavailable`.
     private static let presenceCheckTimeout: TimeInterval = 45
@@ -154,7 +160,7 @@ extension CameraWatcher {
     /// the caller's to keep (`SleepSupervisor`).
     @MainActor
     func checkPresence(completion: @escaping @MainActor (PresenceCheck.Verdict) -> Void) {
-        guard Self.isAuthorized else {
+        guard cameraAuthorized() else {
             completion(.unavailable)
             return
         }
@@ -164,40 +170,57 @@ extension CameraWatcher {
         Logger.app("presence").info("Looking with the camera")
 
         videoOutputQueue.async {
-            self.presenceCheck = PresenceCheck()
-            self.presenceCompletion = completion
+            self.presenceLook = PresenceLook(completion: completion, generation: generation)
         }
         acquire(.look)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.presenceCheckTimeout) { [weak self] in
-            guard let self, self.presenceGeneration == generation else { return }
-            self.videoOutputQueue.async {
-                self.finishPresenceCheck(self.presenceCheck?.finalVerdict ?? .unavailable)
-            }
+            self?.timeOutPresenceCheck(generation: generation)
+        }
+    }
+
+    /// Drops the pending answer and relinquishes only the look's camera ownership.
+    @MainActor
+    func cancelPresenceCheck() {
+        presenceGeneration += 1
+        release(.look)
+        videoOutputQueue.async {
+            if self.presenceLook != nil { Journal.shared.record("camera.cancel") }
+            self.presenceLook = nil
+        }
+    }
+
+    /// Also driven directly by tests, without waiting on a wall clock.
+    @MainActor
+    func timeOutPresenceCheck(generation: Int) {
+        guard presenceGeneration == generation else { return }
+        videoOutputQueue.async {
+            guard let look = self.presenceLook, look.generation == generation else { return }
+            self.finishPresenceCheck(look.check.finalVerdict)
         }
     }
 
     /// One frame into the running look, if there is one. Runs on the video queue.
     func recordPresence(eyes: EyeReading?, at time: TimeInterval, luma: Double?) {
-        guard let verdict = presenceCheck?.record(eyes: eyes, at: time, luma: luma) else { return }
+        guard let verdict = presenceLook?.check.record(eyes: eyes, at: time, luma: luma) else { return }
         finishPresenceCheck(verdict)
     }
 
     /// Runs on the video queue.
     private func finishPresenceCheck(_ verdict: PresenceCheck.Verdict) {
-        guard let completion = presenceCompletion else { return }
-        let frames = presenceCheck?.frames ?? 0
-        var summary = presenceCheck?.summary ?? [:]
+        guard let look = presenceLook else { return }
+        let frames = look.check.frames
+        var summary = look.check.summary
         summary["verdict"] = String(describing: verdict)
         Journal.shared.record("camera.look", summary)
-        presenceCheck = nil
-        presenceCompletion = nil
+        presenceLook = nil
         Logger.app("presence").info(
             "Camera look: \(String(describing: verdict), privacy: .public) after \(frames) frames"
         )
         DispatchQueue.main.async {
+            guard self.presenceGeneration == look.generation else { return }
             self.release(.look)
-            completion(verdict)
+            look.completion(verdict)
         }
     }
 }

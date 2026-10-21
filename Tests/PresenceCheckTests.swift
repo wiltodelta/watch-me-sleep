@@ -111,6 +111,33 @@ final class PresenceCheckTests: XCTestCase {
         XCTAssertEqual(PresenceCheck().finalVerdict, .unavailable)
     }
 
+    func testTimeoutAfterOneFrameCannotConcludeAbsence() {
+        let frames: [(EyeReading?, Double)] = [(.open, 0.5), (.closed, 0.5), (nil, 0.0), (nil, 0.5)]
+        for (eyes, luma) in frames {
+            var check = PresenceCheck()
+            XCTAssertNil(check.record(eyes: eyes, at: 0, luma: luma))
+            XCTAssertEqual(check.frames, 1)
+            XCTAssertEqual(check.finalVerdict, .unavailable)
+        }
+    }
+
+    func testTimeoutRequiresTheWholeLookBeforeConcludingAbsence() {
+        var check = PresenceCheck()
+        for index in 0..<300 {
+            XCTAssertNil(check.record(eyes: nil, at: Double(index) / 10, luma: 0.5))
+        }
+        XCTAssertEqual(check.frames, 300)
+        XCTAssertEqual(check.finalVerdict, .unavailable, "29.9 seconds is still a partial look")
+        XCTAssertEqual(check.record(eyes: nil, at: 30, luma: 0.5), .absent)
+    }
+
+    func testTimeoutDoesNotCountStallsAsObservationTime() {
+        var check = PresenceCheck()
+        XCTAssertNil(check.record(eyes: nil, at: 0, luma: 0.5))
+        XCTAssertNil(check.record(eyes: nil, at: 45, luma: 0.5))
+        XCTAssertEqual(check.finalVerdict, .unavailable)
+    }
+
     func testDarkFramesWithoutAFaceAreUnclearNotAbsent() {
         var check = PresenceCheck()
         var verdict: PresenceCheck.Verdict?
