@@ -25,7 +25,7 @@ black, gray and white backdrops after changing either backing or text colors.
 The dropdown closes on key-focus loss or activation of another app, as well as
 outside clicks and Escape. Activation of its own app does not dismiss it.
 
-`capture-screenshots.sh` regenerates the README screenshots. A single-window capture renders Liquid Glass without what sits behind it, as flat gray, so the script puts an opaque backdrop a shade darker than the panel under each window and captures the screen region with a 20 pt margin, shadow included. The panel hangs 1 pt below the menu bar, so the top margin is filled in the backdrop color instead of captured. The backdrop must be opaque: `underPageBackgroundColor` is translucent and let text from the windows behind it into the images. Each region is checked before and after the capture and the image kept only if nothing but the app and the backdrop is in it: a window raised meanwhile would put private content into a public image. It drives the app only through Accessibility identifiers (`startTimer`, `stopTimer`, `openSettings`, `cameraPreview`), never synthetic clicks.
+`capture-screenshots.sh` regenerates the README screenshots in both appearances through Accessibility identifiers and ScreenCaptureKit. It composites only the app window and an opaque backdrop, including a 20 pt margin, so Liquid Glass has a real background without capturing other apps. The camera stays off, and the development defaults are restored on exit. See [the screenshot recipe](screenshots.md).
 
 The panel follows the system light/dark appearance. On macOS 26+ the system status-bar menus take the menu bar's appearance instead, so they can be dark while the system is light; do not copy that onto the panel (decided 2026-09-23).
 

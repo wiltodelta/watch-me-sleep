@@ -179,8 +179,7 @@ struct CameraPreviewRow: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
         )
-        // One labeled image for VoiceOver; `capture-screenshots.sh` also finds
-        // the feed by this identifier to blur it before a screenshot is published.
+        // One labeled image for VoiceOver and Accessibility inspection.
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Camera preview")
         .accessibilityAddTraits(.isImage)

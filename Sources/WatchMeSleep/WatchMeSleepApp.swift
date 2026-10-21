@@ -63,6 +63,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        configureScreenshotAppearance()
+
         // Hide dock icon
         NSApp.setActivationPolicy(.accessory)
 
@@ -131,6 +133,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Journal.shared.record("launch", launch)
 
         askSoundChoiceOnce()
+    }
+
+    /// A development-only capture override. Shipping builds always follow the system.
+    private func configureScreenshotAppearance() {
+        guard Bundle.main.bundleIdentifier == "com.wiltodelta.watchmesleep.dev",
+              let theme = UserDefaults.standard.string(forKey: "Screenshot.appearance") else { return }
+        let appearances: [String: NSAppearance.Name] = ["light": .aqua, "dark": .darkAqua]
+        if let name = appearances[theme] {
+            NSApp.appearance = NSAppearance(named: name)
+        }
     }
 
     /// Whether sound alone (white noise, an audiobook) should stop once the

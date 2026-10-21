@@ -1,262 +1,161 @@
 # Watch Me While I Fall Asleep
 
-[![Build Watch Me While I Fall Asleep App](https://github.com/wiltodelta/watch-me-sleep/actions/workflows/build.yml/badge.svg)](https://github.com/wiltodelta/watch-me-sleep/actions/workflows/build.yml)
+**Let your Mac fall asleep when you do.**
 
-A macOS menu bar app that puts your Mac to sleep once you fall asleep. At
-bedtime it notices when a film or music keeps the Mac awake but nobody is
-using it any more, takes a short look with the camera when unsure, and sleeps
-the Mac with a minute's warning. A timer covers the rest of the day. Menu bar
-only, no Dock icon.
+I have a bad habit of falling asleep to TV shows on my laptop. The show keeps
+playing, and my wife ends up having to turn it off for me.
+
+I couldn't find a Mac sleep timer that worked the way I wanted. Maybe I just
+missed the right one. So I built a small menu bar app that lets the laptop go
+to sleep on its own, with an automatic night watch and optional camera checks
+for closed eyes. There's a manual timer too.
+
+I want to sleep better, without leaving my wife to take care of the laptop
+after I've fallen asleep.
+
+[**Download the latest release**](https://github.com/wiltodelta/watch-me-sleep/releases/latest)
+ · macOS 15+ · Apple silicon
+
+[![Build](https://github.com/wiltodelta/watch-me-sleep/actions/workflows/build.yml/badge.svg)](https://github.com/wiltodelta/watch-me-sleep/actions/workflows/build.yml)
 
 <p align="center">
-  <img src="screenshots/manual-timer.png" alt="The panel: night watch status and a timer with duration presets" width="280">
-  <img src="screenshots/active-manual-timer.png" alt="A running timer with its countdown" width="280">
-  <img src="screenshots/settings.png" alt="Settings with the night watch and a blurred camera preview" width="280">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="screenshots/manual-timer-dark.png">
+    <img src="screenshots/manual-timer.png" alt="Menu bar panel with night watch status, Watch Now for a Nap, timer presets and Start Timer" width="360">
+  </picture>
 </p>
 
-## Features
+## How it works
 
-Night watch (on by default, during bedtime hours you choose, or now for a nap):
+### Let the night watch decide
 
-- Watches what keeps the Mac awake, not just how long it sat idle: macOS already
-  sleeps an idle Mac, so the night watch steps in when a video, music, or a
-  podcast keeps it up after you stopped using it.
-- When something plays and nobody touches the Mac, the camera takes a short
-  look: closed eyes start a 5-minute timer, so the screen goes off soon after
-  you fall asleep; open eyes leave a film you are still watching alone, and it
-  looks again in 5 minutes. Two detectors must agree that eyes are closed, so a
-  smile or glasses are not taken for sleep
-  ([measurement](docs/eye-detection.md)).
-- "Nobody there" counts only after the camera has seen you since you last
-  touched the Mac: then you left, or fell asleep turned away. A camera that
-  never saw you may just not cover you (a film on a TV, a laptop across the
-  room), and a frame too dark to see in is not taken for an empty bed.
-- Sound alone (a podcast, an audiobook, white noise) is yours to decide: stop
-  it once you are asleep, or keep it playing through the night with the
-  display off. It asks once, and the panel offers the switch while only sound
-  plays.
-- Without the camera it still works: nothing playing and no input for 20
-  minutes starts the timer; something playing for two hours without input
-  asks whether you are still watching.
-- Its timer stops the moment you touch the mouse or keyboard, at any point,
-  the way a TV's auto-off counts from your last button press: it started
-  because nobody seemed to be there. Open eyes in its final minute stop it too,
-  and the night watch goes back to looking every 5 minutes.
-- The final minute's warning shows on every display, so a film on a TV shows
-  it too.
-- **Watch Now for a Nap** in the panel runs it outside bedtime, until the Mac
-  or its display goes to sleep.
-- Never runs the camera outside bedtime or a nap, never asks for camera access at night,
-  and analyzes frames on this Mac with Apple's Vision framework; nothing is
-  recorded or sent anywhere.
-- Work keeps going: when `caffeinate`, a download, a build, or an agent holds
-  the Mac awake, only the display turns off, and the Mac sleeps by itself once
-  the work lets go.
-- The panel says what it is doing: "Something is playing. No input for 12 min.
-  The camera looks at 23:40."
+Choose your bedtime, then watch as usual. The night watch runs from **9 PM to
+8 AM** by default. You can set any start and end time, including a daytime
+schedule, or click **Watch Now for a Nap** to use it outside those hours.
 
-Timer:
+When media keeps your Mac awake and you haven't touched it for five minutes,
+the optional camera takes a short look. Closed eyes start a **five-minute
+sleep timer**. If your eyes are open, it checks again later. A timer started
+by the camera checks once more in its final minute, and open eyes cancel it.
 
-- Remaining time shown in the menu bar next to the icon.
-- Any duration from 15 minutes to 12 hours, plus one-click presets (15m, 30m,
-  1h, 1h 30m, 2h, 3h, 4h, 6h).
-- Extend a running timer by +5m, +15m, +30m or +1h.
-- Escape closes the panel; a running timer keeps going.
-- Right-click the icon for a quick menu: start a common timer, stop the current
-  one, or open Settings.
-- Circular progress ring, and a moon icon that fills in while a timer runs.
+You can use the night watch without a camera. A quiet Mac gets a timer after
+20 minutes without input. With media playing and no usable camera, it asks
+whether you're still watching after two hours.
 
-Every timer, set by hand or by the night watch:
+For a podcast, audiobook or white noise, choose whether the sound should stop
+once you're asleep or keep playing with the screen off.
 
-- A gentle last minute: a small panel in the corner counts down and the volume
-  fades out; for a timer you set, it offers **+30m** and **Sleep Now**. When work holds the Mac awake,
-  the panel and the countdown say the display turns off, not that it sleeps. It shows over full-screen video
-  and does not take the keyboard from the player. The volume comes back when
-  the Mac or its display wakes.
-- Never sleeps a Mac in use: touch the mouse or keyboard during that last
-  minute of a timer you set and it moves on by 30 minutes instead.
+### Or choose a time yourself
 
-System:
+Set a timer for **15 minutes to 12 hours**, or pick one of eight presets.
+The countdown appears in the menu bar. Open the panel to add **5, 15, 30 or
+60 minutes**, or stop the timer.
 
-- Launch at login.
-- In-place updates: checks once a day and installs a new version when you
-  choose to (Sparkle).
-- Adaptive app icon (light/dark), restrained system-style UI.
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="screenshots/active-manual-timer-dark.png">
+    <img src="screenshots/active-manual-timer.png" alt="Running two-hour timer with a progress ring, time extensions and Stop Timer" width="360">
+  </picture>
+</p>
 
-## Requirements
+## Before the Mac goes to sleep
 
-- macOS 15 (Sequoia) or later. The three latest macOS releases are supported;
-  on macOS 26 (Tahoe) and later the UI uses Liquid Glass.
-- A Mac with Apple silicon. Intel Macs are not supported.
-- For building from source: Xcode 26 or later.
+In the final minute, a small countdown appears on every display, including
+over full-screen video, while the volume fades out. A manual timer's warning
+offers **+30m** and **Sleep Now**. Volume returns when the Mac or its display
+wakes.
+
+If you use the mouse or keyboard, a night watch timer cancels immediately.
+For a timer you set yourself, input during the final minute postpones sleep
+by **30 minutes** instead.
+
+If another process is keeping the Mac awake for work, the timer turns off
+only the display. The work keeps running, and the Mac can sleep normally
+once that process lets it.
+
+The [user guide](docs/usage.md#night-watch) covers the exact timing, unclear
+camera checks and other night watch decisions.
 
 ## Install
 
-### From a release
+Requires **macOS 15 or later** and **Apple silicon**. Intel Macs are not
+supported. The interface follows your system's appearance, with Liquid Glass
+on macOS 26 and later.
 
-1. Download the latest `Watch-Me-While-I-Fall-Asleep-vX.Y.Z-macOS.zip` from the
-   [Releases](https://github.com/wiltodelta/watch-me-sleep/releases) page.
-2. Unzip it and move **Watch Me While I Fall Asleep.app** to `/Applications`.
-3. Launch it. Releases from 2.1.0 on are signed with a Developer ID and
-   notarized by Apple, so macOS opens them without a warning. A moon icon
-   appears in the menu bar (there is no Dock icon).
+1. [Download the latest release](https://github.com/wiltodelta/watch-me-sleep/releases/latest)
+   and unzip it.
+2. Move **Watch Me While I Fall Asleep.app** to **Applications** and open it.
+3. Click the moon in the menu bar and open **Settings…**. Choose your bedtime
+   and whether to use the camera. Turn on **Launch at login** if you want the
+   app ready each night.
 
-From 2.2.0 on the app updates itself (see [Updates](#updates)).
+Release builds are signed with a Developer ID and notarized by Apple.
+Updates use Sparkle: the app checks daily and installs a new version when
+you choose to. Automatic checks can be turned off in Settings.
 
-### From source
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="screenshots/settings-dark.png">
+    <img src="screenshots/settings.png" alt="Settings for bedtime, optional camera use, audio behavior, launch at login and updates" width="540">
+  </picture>
+</p>
+
+## Camera and privacy
+
+Camera checks are optional. Turn on **Use the camera** in Settings to grant
+access, then use **Camera preview > Show** to check the view from where you
+usually watch. The night watch never asks for permission during the night.
+
+**Camera images stay on your Mac. Nothing is recorded or uploaded.**
+Frames are analyzed locally with Apple's Vision and Core Image frameworks.
+Automatic camera checks run only during bedtime or an active nap. The
+Settings preview runs only while you show it.
+
+A dark or unclear picture isn't treated as proof that you're asleep. An
+empty frame counts only after the camera has seen a face during the same
+stretch without input. Detection can still be imperfect; the
+[eye-detection notes](docs/eye-detection.md) explain the method, measurements
+and limitations.
+
+There are no accounts, analytics or telemetry. The app's network traffic is
+its Sparkle update check.
+
+## Build from source
+
+Use full **Xcode 26 or later** on **macOS 26 or later**. The app uses SwiftPM
+and Apple's frameworks, with Sparkle as its only external dependency.
 
 ```bash
 git clone https://github.com/wiltodelta/watch-me-sleep.git
 cd watch-me-sleep
 ./create-app.sh
-mv "Watch Me While I Fall Asleep.app" /Applications/
+open "Watch Me While I Fall Asleep.app"
 ```
 
-## First run
+Local builds have a separate development bundle identifier and settings.
+The build script signs with the team's Developer ID when available and
+otherwise uses an ad hoc signature.
 
-- The night watch and the timer need no permissions at all.
-- The camera is optional. Turn on **Use the camera** in Settings and the app
-  asks for **Camera** access then (System Settings > Privacy & Security >
-  Camera); **Camera preview > Show** shows what it sees.
+- `bash maintain.sh` runs SwiftLint with fixes, tests and a signed bundle
+  build. Install SwiftLint with `brew install swiftlint` first.
+- `./capture-screenshots.sh` regenerates both screenshot themes with the
+  camera off. It needs Accessibility and Screen Recording access and restores
+  the development settings afterward. See the [screenshot recipe](docs/screenshots.md).
+- [Build and release](docs/build-and-release.md) covers signing,
+  notarization, tag-driven releases and Sparkle packaging.
+- [UI architecture](docs/ui-architecture.md) describes the native menu bar
+  panel, Settings and warning windows.
 
-## Usage
+## Help
 
-### Night watch
+See the [user guide](docs/usage.md) for Settings, updates, troubleshooting and
+uninstalling. If the menu bar icon is hidden, open the app again from Finder
+or Spotlight to reach Settings.
 
-It is on from 9 PM to 8 AM by default. Set bedtime in Settings to any times,
-to the minute (10:30 PM to 6:45 AM, or a daytime sleep after a night shift).
-During those hours, once you stop using the Mac:
-
-- Nothing playing, nobody at the keyboard: after 20 minutes a 15-minute timer
-  starts. The camera stays off: with nothing playing, nobody is watching.
-- Something playing: after 5 minutes the camera looks. Closed eyes start a
-  5-minute timer, whose final minute looks once more; so does nobody there,
-  once the camera has seen you in this stretch. Open eyes mean you are
-  watching, and it looks again in 5 minutes. If the picture stays unclear
-  (too dark, a face turned away, nobody ever seen), or there is no camera, it
-  asks after two hours whether you are still watching.
-- Only sound playing, and you chose to keep it: nothing happens; the display
-  turns off by itself and the sound plays on.
-- Something starts playing during the quiet Mac's timer: the timer stops and
-  the camera decides instead.
-- After three hours without input it asks anyway: some people sleep with their
-  eyes partly open.
-- It acts once per stretch of not using the Mac, and starts over when you are
-  back. Its timer stops as soon as you are: a touch of the mouse or keyboard
-  at any time, or open eyes in the final minute of a timer the camera started.
-  A quiet Mac's timer and the three-hour question never use the camera at the
-  end, so only you can stop them.
-
-For a nap outside those hours, click **Watch Now for a Nap** in the panel. The
-night watch then works as at night until the Mac or its display goes to sleep;
-**End Nap** stops it sooner.
-
-Camera checks stay within bedtime or an active nap. Turning off the night
-watch or camera discards a pending result.
-
-### Timer
-
-1. Click the moon icon.
-2. Set a duration with the slider or a preset, then click **Start Timer**. The
-   panel offers two hours at first, then the length you chose last.
-3. The icon fills in while the timer runs. Click it again to see the remaining
-   time, add time, or stop.
-4. A minute before the end, a panel in the top-right corner counts down and the
-   volume fades. Leave it alone and the Mac sleeps; use the mouse or keyboard
-   and it stays awake another 30 minutes. A timer that ran out while the Mac
-   was already asleep (lid closed) is dropped on wake.
-
-Right-click the icon for a quick menu that shows what the night watch is doing,
-starts a timer with the panel's presets, stops the current one, opens Settings,
-or checks for updates. **Help > Watch Me While I Fall Asleep Help** opens this README.
-
-## Settings
-
-Open Settings from **Settings…** in the panel, from the right-click menu, or by
-opening the app again from Finder or Spotlight (useful if its menu bar icon is
-hidden).
-
-- **Night watch**: on or off, bedtime (any start and end time), and **Use the
-  camera**. **Camera
-  preview > Show** turns the camera on to check that it sees your face; it goes
-  off again with **Hide** or when Settings closes. Check it sitting or lying
-  where you usually watch from. **When only sound plays**: stop it once you are asleep, or keep
-  it playing.
-- **Startup**: launch at login.
-- **Updates**: current version, automatic daily checks on or off, and a **Check
-  for Updates…** button.
-
-## Updates
-
-The app uses [Sparkle](https://sparkle-project.org) (MIT licensed; its notice
-ships in the app bundle) to check once a day for a new release. It never takes
-focus from what you are doing: when an update is found, an **Install Update…**
-button appears in the panel footer (its tooltip names the version), and the update window opens only when you
-choose it or check by hand from Settings > Updates. Updates are signed with an
-EdDSA key as well as the Developer ID, and install in place with a relaunch.
-Automatic checks can be turned off in Settings.
-
-## Troubleshooting
-
-- **"Watch Me While I Fall Asleep is damaged and can't be opened":** releases
-  before 2.1.0 were not notarized. Update to the latest release, or clear the
-  quarantine flag with `xattr -cr "/Applications/Watch Me While I Fall Asleep.app"`.
-- **Only the display turned off:** work was holding the Mac awake, and the app
-  leaves it running. See what with `pmset -g assertions`.
-- **The camera never looks:** enable the app under System Settings > Privacy &
-  Security > Camera, turn on **Use the camera**, and check in the Settings
-  preview that your face is visible and well lit. 2.1.0 is the first release
-  signed with a Developer ID, a different signature from earlier builds, so
-  macOS asks for camera access once more after the update.
-- **No icon in the menu bar:** confirm you are on macOS 15 or later; on macOS 26
-  also check System Settings > Menu Bar > Allow in the Menu Bar. Opening the app
-  again shows its settings window either way.
-- **The night watch did something unexpected:** turn on its diagnostics
-  journal with `defaults write com.wiltodelta.watchmesleep Diagnostics.journal
-  -bool true`; it records what it saw and did, without images, in
-  `~/Library/Logs/WatchMeSleep/` ([diagnostics](docs/diagnostics.md)).
-
-## Building and releasing
-
-- `./create-app.sh` assembles the signed `.app` bundle: with the maintainer's
-  Developer ID identity in the keychain it signs with it (hardened runtime and
-  the camera entitlement in `WatchMeSleep.entitlements`), otherwise
-  ad hoc, and then camera access re-prompts after every rebuild.
-- `RELEASE=1 ./create-app.sh && ./notarize.sh` adds a secure timestamp,
-  notarizes, staples, and writes the release zip.
-- `bash maintain.sh` runs SwiftLint, the tests, and `create-app.sh`.
-- `./capture-screenshots.sh` rebuilds the app and regenerates the screenshots
-  above through Accessibility, blurring the camera feed. It needs Accessibility
-  and Screen Recording access for the terminal and turns the camera on briefly.
-
-Releases are automated: the app version comes from the git tag. Pushing an
-annotated `vX.Y.Z` tag makes GitHub Actions build the app, sign it with the
-Developer ID, notarize it, and publish a Release with the zip and the Sparkle
-`appcast.xml` attached. The annotation's first line is the release title and its
-body the release notes, which also appear in the update window:
-
-```bash
-git tag -a vX.Y.Z -F notes.md   # first line the title, blank line, then the notes
-git push origin vX.Y.Z
-```
-
-Local builds carry the latest tag's version and are not meant for distribution.
-Secrets, keys and verification steps: [`docs/build-and-release.md`](docs/build-and-release.md).
-
-## Uninstall
-
-Quit the app from its panel, then move **Watch Me While I Fall Asleep.app** to
-the Trash. To remove its settings too:
-
-```bash
-defaults delete com.wiltodelta.watchmesleep
-rm -rf ~/Library/Logs/WatchMeSleep
-```
-
-Remove it from System Settings > Privacy & Security > Camera and from General >
-Login Items as well.
+To investigate an unexpected night watch decision, enable the optional
+[diagnostics journal](docs/diagnostics.md). It records signals and decisions
+without camera images.
 
 ## License
 
-Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the
-full text.
+[Apache License 2.0](LICENSE).
