@@ -9,6 +9,15 @@ it the bundle is signed ad hoc and camera access re-prompts after every
 rebuild. `RELEASE=1 ./create-app.sh && ./notarize.sh` notarizes, staples, and
 writes the release zip.
 
+`./create-app.sh` produces `Watch Me While I Fall Asleep Dev.app`, with `Dev`
+in both bundle name fields and the separate
+`com.wiltodelta.watchmesleep.dev` identifier. This distinguishes it from the
+release in Privacy & Security, Login Items, and other macOS app lists.
+`RELEASE=1` produces **Watch Me While I Fall Asleep.app** with the release
+identifier. CI branch builds use `./notarize.sh --zip-only` to package the Dev
+bundle under the existing versioned zip filename; this mode does not notarize
+or publish it.
+
 ## Release process
 
 A pushed annotated `vX.Y.Z` tag runs `.github/workflows/build.yml`: lint and

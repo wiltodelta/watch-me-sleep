@@ -130,6 +130,7 @@ struct NightWatchStatusView: View {
 /// beside what the night watch makes of it, in words, not only color. The
 /// camera runs only while this row is on screen.
 struct CameraPreviewRow: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var camera = CameraWatcher.shared
     /// Big enough to see a face, a form row rather than a stage.
     private static let thumbnailHeight: CGFloat = 96
@@ -160,7 +161,7 @@ struct CameraPreviewRow: View {
         .padding(.vertical, 4)
         .onAppear { camera.setPreviewActive(true) }
         .onDisappear { camera.setPreviewActive(false) }
-        .animation(.easeInOut(duration: 0.2), value: camera.isFaceDetected)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: camera.isFaceDetected)
     }
 
     private var thumbnail: some View {

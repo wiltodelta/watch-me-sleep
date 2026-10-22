@@ -129,10 +129,11 @@ and Apple's frameworks, with Sparkle as its only external dependency.
 git clone https://github.com/wiltodelta/watch-me-sleep.git
 cd watch-me-sleep
 ./create-app.sh
-open "Watch Me While I Fall Asleep.app"
+open "Watch Me While I Fall Asleep Dev.app"
 ```
 
-Local builds have a separate development bundle identifier and settings.
+Local builds are named **Watch Me While I Fall Asleep Dev**, with a separate
+development bundle identifier and settings.
 The build script signs with the team's Developer ID when available and
 otherwise uses an ad hoc signature.
 

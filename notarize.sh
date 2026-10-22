@@ -1,7 +1,7 @@
 #!/bin/bash
 # Notarize and staple the bundle create-app.sh produced, then zip it for a release:
 #   RELEASE=1 ./create-app.sh && ./notarize.sh   -> Watch-Me-While-I-Fall-Asleep-vX.Y.Z-macOS.zip
-#   ./notarize.sh --zip-only                      -> the same zip, not notarized (CI branch builds)
+#   ./notarize.sh --zip-only                      -> a zip of the Dev bundle, not notarized (CI branch builds)
 #
 # Needs the Developer ID signature with a secure timestamp that RELEASE=1
 # create-app.sh applies, and the team's notarytool credentials stored once in the
@@ -12,6 +12,9 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 APP="Watch Me While I Fall Asleep.app"
+if [[ "${1:-}" == "--zip-only" ]]; then
+    APP="Watch Me While I Fall Asleep Dev.app"
+fi
 PROFILE="${NOTARY_PROFILE:-notary-K2GT9Q4S6U}"
 # CI stores the profile in a temporary keychain and names it here.
 KEYCHAIN_ARGS=(${NOTARY_KEYCHAIN:+--keychain "$NOTARY_KEYCHAIN"})

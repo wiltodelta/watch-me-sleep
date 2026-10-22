@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 
 MODE="${1:-all}"
 case "$MODE" in light|dark|all) ;; *) echo "Usage: $0 [light|dark|all]" >&2; exit 2 ;; esac
-APP_NAME="Watch Me While I Fall Asleep"
+APP_NAME="Watch Me While I Fall Asleep Dev"
 APP_DIR="$PWD/$APP_NAME.app"
 DOMAIN="com.wiltodelta.watchmesleep.dev"
 EXECUTABLE="$APP_DIR/Contents/MacOS/WatchMeSleep"

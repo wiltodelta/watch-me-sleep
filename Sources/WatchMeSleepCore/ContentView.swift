@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 
 public struct ContentView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var timerManager = TimerManager.shared
     @ObservedObject private var supervisor = SleepSupervisor.shared
     /// The last length chosen, so the panel offers it again; two hours, about
@@ -26,7 +27,7 @@ public struct ContentView: View {
                                       isDefaultAction: supervisor.status != .off)
                 }
             }
-            .animation(.easeInOut(duration: 0.18), value: timerManager.isTimerActive)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: timerManager.isTimerActive)
 
             Divider()
 

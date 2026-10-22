@@ -13,6 +13,7 @@ APP_NAME="Watch Me While I Fall Asleep"
 if [[ "${RELEASE:-}" == 1 ]]; then
     BUNDLE_ID="com.wiltodelta.watchmesleep"; UPDATE_CHECKS="true"
 else
+    APP_NAME="$APP_NAME Dev"
     BUNDLE_ID="com.wiltodelta.watchmesleep.dev"; UPDATE_CHECKS="false"
 fi
 APP_DIR="$APP_NAME.app"

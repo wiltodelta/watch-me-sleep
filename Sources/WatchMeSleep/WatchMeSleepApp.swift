@@ -265,7 +265,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // The standard selector lets macOS 26+ give the item its system icon.
         menu.addItem(NSMenuItem(title: "Quit Watch Me While I Fall Asleep",
                                 action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
-        menu.items.forEach(showsImage)
+        // Keep images in the timer and app-action groups, leaving the status
+        // row and separators to the system's default visibility.
+        for item in menu.items where item.image != nil || item.action == #selector(NSApplication.terminate(_:)) {
+            showsImage(item)
+        }
 
         // macOS 26 status menus take the menu bar's appearance, dark over a
         // dark wallpaper on a light system; this one follows the system, like
