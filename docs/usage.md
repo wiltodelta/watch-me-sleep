@@ -38,7 +38,10 @@ During those hours, once you stop using the Mac:
 
 For a nap outside those hours, click **Watch Now for a Nap** in the panel. The
 night watch then works as at night until the Mac or its display goes to sleep;
-**End Nap** stops it sooner.
+**End Nap** stops it sooner and cancels its automatic timer. Turning off the
+night watch also cancels its automatic timer. Choosing to keep sound playing
+cancels an automatic timer when only sound is playing, including when video
+stops later. These choices leave hand-set timers running.
 
 Camera checks stay within bedtime or an active nap. Turning off the night
 watch or camera cancels a pending check and releases its camera use. Ending a

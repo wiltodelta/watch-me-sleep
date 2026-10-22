@@ -41,7 +41,12 @@ public final class SleepSupervisor: ObservableObject {
     /// When only sound plays (a podcast, white noise), keep it playing through
     /// the night instead of sleeping the Mac once the person is asleep. The
     /// display still turns off by itself: sound holds only the system awake.
-    @Published public var keepsSoundPlaying = false { didSet { persist() } }
+    @Published public var keepsSoundPlaying = false {
+        didSet {
+            persist()
+            if isLoaded { refreshStatus() }
+        }
+    }
     /// The sound choice was put to the person once (`AppDelegate`).
     public var soundChoiceAsked: Bool {
         get { defaults.bool(forKey: Key.soundChoiceAsked) }
@@ -95,13 +100,6 @@ public final class SleepSupervisor: ObservableObject {
     /// enabled again before the camera finishes.
     private var lookGeneration = 0
 
-    func invalidateLook() {
-        lookGeneration += 1
-        guard isLooking else { return }
-        isLooking = false
-        cancelPresence()
-    }
-
     private var mayLook: Bool {
         isEnabled && cameraUsable && (isWatchingNow || isWithinWindow(now()))
     }
@@ -145,6 +143,7 @@ public final class SleepSupervisor: ObservableObject {
         guard isWatchingNow else { return }
         Journal.shared.record("nap", ["on": false])
         isWatchingNow = false
+        cancelAutomaticTimer(reason: .napEnded)
         refreshStatus()
     }
 
@@ -215,7 +214,10 @@ public final class SleepSupervisor: ObservableObject {
         if inUse {
             stretch = Stretch()
         }
-        guard isEnabled else { return .off }
+        guard isEnabled else {
+            cancelAutomaticTimer(reason: .watchDisabled)
+            return .off
+        }
         let inWindow = bedtimeMinutes > 0 && isWithinWindow(now())
         if inWindow, isWatchingNow {
             Journal.shared.record("nap", ["on": false, "why": "bedtime"])
@@ -223,8 +225,7 @@ public final class SleepSupervisor: ObservableObject {
         }
         let watching = inWindow || isWatchingNow
         cancelLookIfNeeded(watching: watching, inUse: inUse)
-        holders = watching ? wakeHolders() : .none
-        if isSoundOnlyPlaying != holders.soundOnly { isSoundOnlyPlaying = holders.soundOnly }
+        refreshHolders(watching: watching)
         if timer.isTimerActive, !overruleQuietTimer(watching: watching) { return .timerRunning }
         if !watching { return bedtimeMinutes == 0 ? .noBedtime : .outsideHours }
         if inUse { return .inUse }
@@ -433,5 +434,39 @@ public final class SleepSupervisor: ObservableObject {
     /// Bedtime's length in minutes, across midnight when it wraps.
     public var bedtimeMinutes: Int {
         (bedtimeEnd - bedtimeStart + 24 * 60) % (24 * 60)
+    }
+}
+
+// MARK: - Watch transitions
+
+extension SleepSupervisor {
+    func invalidateLook() {
+        lookGeneration += 1
+        guard isLooking else { return }
+        isLooking = false
+        cancelPresence()
+    }
+
+    /// Cancel only a timer owned by this watch; hand-set timers keep their intent.
+    private func cancelAutomaticTimer(reason: TimerManager.StopReason) {
+        guard timer.isTimerActive, timer.stopsOnInput else { return }
+        invalidateLook()
+        timer.stopTimer(reason: reason)
+        stretch.acted = false
+        quietTimerArmed = false
+    }
+
+    func settingsChanged() {
+        persist()
+        guard isLoaded else { return }
+        if !isEnabled { isWatchingNow = false }
+        refreshStatus()
+        startMonitoring()
+    }
+
+    private func refreshHolders(watching: Bool) {
+        holders = watching ? wakeHolders() : .none
+        if isSoundOnlyPlaying != holders.soundOnly { isSoundOnlyPlaying = holders.soundOnly }
+        if keepsSoundPlaying, holders.soundOnly { cancelAutomaticTimer(reason: .keepingSound) }
     }
 }

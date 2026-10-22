@@ -70,7 +70,7 @@ final class SleepSupervisorTests: SleepSupervisorTestCase {
         XCTAssertFalse(timer.isTimerActive)
     }
 
-    func testFinalMinuteAnswerAfterDisablingWatchDoesNotStopTimer() {
+    func testFinalMinuteAnswerAfterDisablingWatchDoesNotAffectAReplacementTimer() {
         idleFor(minutes: 10)
         answer(.asleep)
         clock += 241
@@ -79,10 +79,13 @@ final class SleepSupervisorTests: SleepSupervisorTestCase {
         XCTAssertNotNil(pendingLook)
         XCTAssertTrue(supervisor.isLooking)
         supervisor.isEnabled = false
+        XCTAssertFalse(timer.isTimerActive)
+        timer.startTimer(hours: 1)
 
         answer(.awake)
 
         XCTAssertTrue(timer.isTimerActive)
+        XCTAssertEqual(timer.totalTime, 3600)
         XCTAssertFalse(supervisor.isLooking)
     }
 

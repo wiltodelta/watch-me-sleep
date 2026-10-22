@@ -45,6 +45,10 @@ whether you're still watching after two hours.
 For a podcast, audiobook or white noise, choose whether the sound should stop
 once you're asleep or keep playing with the screen off.
 
+Turning off the night watch or ending a nap cancels its automatic timer.
+Choosing to keep sound playing cancels it when only sound is playing.
+Timers you set by hand keep running.
+
 ### Or choose a time yourself
 
 Set a timer for **15 minutes to 12 hours**, or pick one of eight presets.

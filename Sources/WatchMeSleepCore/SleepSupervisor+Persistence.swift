@@ -58,9 +58,4 @@ extension SleepSupervisor {
         ["enabled": isEnabled, "bedtime": bedtimeRangeText, "usesCamera": usesCamera,
          "cameraAuthorized": cameraAuthorized(), "keepsSoundPlaying": keepsSoundPlaying]
     }
-
-    func settingsChanged() {
-        persist()
-        startMonitoring()
-    }
 }

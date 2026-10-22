@@ -55,6 +55,9 @@ public class TimerManager: ObservableObject {
         case openEyes = "open eyes"
         case mediaStarted = "media started"
         case sleptThrough = "ran out while the Mac slept"
+        case watchDisabled = "night watch disabled"
+        case napEnded = "nap ended"
+        case keepingSound = "keeping sound playing"
     }
 
     public enum SleepKind {

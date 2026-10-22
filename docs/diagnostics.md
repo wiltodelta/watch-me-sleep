@@ -45,7 +45,7 @@ the names of processes holding the Mac awake.
 | `timer.finalMinute` | The warning and fade begin | `endsWithDisplayOff` |
 | `timer.someoneThere` | Someone is at the Mac in a hand-set timer's final minute | `how` |
 | `timer.postponed` | A hand-set timer moves on at zero | `minutes` |
-| `timer.stop` | A timer stops before zero | `reason` (`input`, `open eyes`, `media started`, `stopped by hand`, `replaced`, `ran out while the Mac slept`), `remaining` |
+| `timer.stop` | A timer stops before zero | `reason` (`input`, `open eyes`, `media started`, `stopped by hand`, `replaced`, `ran out while the Mac slept`, `night watch disabled`, `nap ended`, `keeping sound playing`), `remaining` |
 | `sleep.request` | The app requests sleep or display off | `command`, `work`, `byHand` |
 | `sleep` | The power command exits successfully; the `system` event confirms the OS transition | `command`, `work`, `byHand` |
 | `sleep.failed` | The power command cannot launch or exits unsuccessfully; volume is restored | `command`, `error` |
@@ -70,3 +70,36 @@ jq -c 'select(.event == "camera.look") | {t, verdict, meanLuma, faceSeconds, dar
 # How each night ended
 jq -c 'select(.event | startswith("sleep") or . == "timer.stop" or . == "system")' "$J"
 ```
+
+## Interpret the evidence
+
+- `camera.look` records the detector's verdict, not independently verified
+  sleep. An `asleep` verdict followed by input or open eyes shows that the
+  timer was canceled, but cannot distinguish a detector error from waking up.
+  Photo benchmarks do not measure accuracy over real nights.
+- `sleep` means the requested command succeeded. Read `command`:
+  `displaysleepnow` turns off the display and leaves the system running.
+  Only a subsequent `system` event with `what: "will sleep"` confirms a
+  system sleep transition; that event alone does not identify its cause.
+- `work` reports the assertion classifier's result. It does not prove that
+  a process is doing useful work. Classification matches assertion holders
+  and audio players by PID; a browser appearing in `work` needs a live
+  assertion and audio-PID investigation before changing the rule.
+
+## Automatic timer cancellation
+
+Disabling the night watch or ending an active nap cancels its running
+automatic timer immediately. Choosing to keep sound playing also cancels an
+automatic timer when only sound is playing; the same rule applies if a film
+becomes sound-only later. A film's timer continues while video is still
+playing. Hand-set timers remain independent of these choices.
+
+Cancellation restores faded volume and invalidates any pending final-minute
+camera answer. The journal records `timer.stop` with `night watch disabled`,
+`nap ended`, or `keeping sound playing`. Watching can resume in the same idle
+stretch when enabled again, a new nap starts, or the sound choice is reversed.
+
+`SleepSupervisorTimerCancellationTests` exercises these transitions without
+keyboard or mouse input, so input cancellation cannot mask a missing state
+transition. The tests replace the sleep handler, camera, volume, defaults and
+signal providers; they never run the real sleep command.
