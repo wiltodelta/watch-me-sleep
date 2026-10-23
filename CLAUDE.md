@@ -6,16 +6,15 @@ Shared rules for our macOS apps: `~/Documents/GitHub/claude-config/docs/macos-ap
 
 ## How to run
 
-- `./create-app.sh` - build and assemble the standalone .app bundle (version from the latest tag, icon compiled from `App Icon.icon` (its layers drawn by `scripts/draw-icon.py`; icon.json edited in Icon Composer) plus `MenuIcons.xcassets` by actool, Sparkle embedded) and sign it with the team's Developer ID (hardened runtime plus the camera entitlement; the hardened runtime blocks the camera without it). The TCC grant the stable signature preserves is Camera. Releases: `RELEASE=1 ./create-app.sh && ./notarize.sh` locally, or a `vX.Y.Z` tag, which CI signs and notarizes from repository secrets (`docs/build-and-release.md`).
+- `./create-app.sh` - build and assemble the standalone .app bundle (version from the latest tag, icon compiled from `App Icon.icon` (its layers drawn by `scripts/draw-icon.py`; icon.json edited in Icon Composer) plus `MenuIcons.xcassets` by actool, Sparkle embedded) and sign it with the team's Developer ID (hardened runtime plus the camera entitlement; the hardened runtime blocks the camera without it). The TCC grant the stable signature preserves is Camera. A local release build is `RELEASE=1 ./create-app.sh && ./notarize.sh` (`docs/build-and-release.md`).
 - `./capture-screenshots.sh` - rebuild and regenerate light/dark `screenshots/` through Accessibility identifiers and ScreenCaptureKit, with the camera off; needs Accessibility and Screen Recording for the terminal and an unlocked session. Restores the development defaults and quits its own timer/app on exit. Leave the Mac alone while it runs; recipe: `docs/screenshots.md`.
-- `Package.swift` stamps a macOS 26 SDK version into the executable through `linkerSettings`; without it Xcode 27's Swift Build records the deployment target there and macOS runs the pre-Tahoe compatibility look. Check a binary with `vtool -show-build`: `docs/ui-architecture.md`.
 
 ## Test and lint
 
 - `bash maintain.sh` - the canonical Swift gate.
 - `swiftlint` must be installed for the lint step (`brew install swiftlint`); `maintain.sh` fails without it. It lints `Sources` and `Tests`. It fails the gate on a file over 500 lines or a function over cyclomatic complexity 10: split by type or extract a helper.
 - The right-click menu opens only on a real right click; checks reach it through the status button's `Show Menu` accessibility custom action. Pass the complete name returned by `AXUIElementCopyActionNames`, including metadata, as `docs/macos-capture.md` in claude-config describes.
-- A build without `RELEASE=1` is `Watch Me While I Fall Asleep Dev.app` (`com.wiltodelta.watchmesleep.dev`), with `Dev` in both bundle name fields, its own defaults, journal (`~/Library/Logs/WatchMeSleep Dev`), login item and camera grant, so it runs beside the installed app without touching it. Both night watches can act at once: quit one before testing sleep.
+- The dev build (`com.wiltodelta.watchmesleep.dev`) keeps its journal in `~/Library/Logs/WatchMeSleep Dev` and has its own camera grant. Both night watches can act at once: quit one before testing sleep.
 - Running the bare `.build/debug/WatchMeSleep` shows Sparkle's modal "Unable to Check For Updates", and its modal loop stalls the timer's ticks; it and `xctest` also hold no Camera grant, so the night watch's camera look answers `unavailable` there. Exercise the camera path from the signed bundle.
 - To debug a real night, read the opt-in diagnostics journal (`Journal`, JSON Lines in `~/Library/Logs/WatchMeSleep/`, on with the `Diagnostics.journal` default; events and `jq` recipes: `docs/diagnostics.md`). Record a new decision there when adding one. Watch a night live with `/usr/bin/log stream --level info --predicate 'subsystem == "com.wiltodelta.watchmesleep"'`; `.info` is not persisted (global Swift rule).
 - While the Mac is in use (`capture-screenshots.sh` needs it idle), render a changed view from a throwaway `@testable` test with `ImageRenderer` in both color schemes; it shows layout and text, not the Liquid Glass backing, and draws AppKit-backed controls (a `.switch` toggle) as a yellow placeholder.
@@ -35,7 +34,7 @@ Shared rules for our macOS apps: `~/Documents/GitHub/claude-config/docs/macos-ap
 
 ## UI
 
-Supports the three latest macOS releases (currently 15+) on Apple silicon only, and follows Apple's HIG; `#available(macOS 26.0, *)` branches are the Liquid Glass path, the else branches serve 15.
+`#available(macOS 26.0, *)` branches are the Liquid Glass path, the else branches serve 15.
 
 Menu-bar `.accessory` app: `SettingsView` lives in a custom `NSWindow` opened by `AppDelegate`, and the dropdown is a custom borderless `NSPanel` (`MenuBarPanel.swift`), not an `NSPopover`. The three load-bearing panel rules (`sizeThatFits` height, material backing kept at the AppKit level, pinned `.frame(width:)` plus layer-backed corner rounding): `docs/ui-architecture.md`.
 
