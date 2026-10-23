@@ -38,3 +38,7 @@ Shared rules for our macOS apps: `~/Documents/GitHub/claude-config/docs/macos-ap
 Supports the three latest macOS releases (currently 15+) on Apple silicon only, and follows Apple's HIG; `#available(macOS 26.0, *)` branches are the Liquid Glass path, the else branches serve 15.
 
 Menu-bar `.accessory` app: `SettingsView` lives in a custom `NSWindow` opened by `AppDelegate`, and the dropdown is a custom borderless `NSPanel` (`MenuBarPanel.swift`), not an `NSPopover`. The three load-bearing panel rules (`sizeThatFits` height, material backing kept at the AppKit level, pinned `.frame(width:)` plus layer-backed corner rounding): `docs/ui-architecture.md`.
+
+## Personal website
+
+- Victor's personal website (`wiltodelta/wiltodelta-app`, page `/projects/watch-me-sleep/`) imports `screenshots/manual-timer.png`, `screenshots/manual-timer-dark.png` and the README sections "How it works" from each stable release at its tag. Before tagging a release whose UI changed, regenerate those screenshots. Do not rename or remove them, or those sections, without updating `releaseSource` in that repository's `src/data/project-catalog.json` in the same change. After publishing, run `pnpm run build:products` there, read the page, and update its copy (`project-catalog.json`) when user-visible behavior changed. Nothing does this automatically yet; the full procedure is `docs/product-updates.md` there, "What product repositories owe the site".
