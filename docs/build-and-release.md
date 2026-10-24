@@ -9,11 +9,11 @@ it the bundle is signed ad hoc and camera access re-prompts after every
 rebuild. `RELEASE=1 ./create-app.sh && ./notarize.sh` notarizes, staples, and
 writes the release zip.
 
-`./create-app.sh` produces `Watch Me While I Fall Asleep Dev.app`, with `Dev`
+`./create-app.sh` produces `Watch Me Sleep Dev.app`, with `Dev`
 in both bundle name fields and the separate
 `com.wiltodelta.watchmesleep.dev` identifier. This distinguishes it from the
 release in Privacy & Security, Login Items, and other macOS app lists.
-`RELEASE=1` produces **Watch Me While I Fall Asleep.app** with the release
+`RELEASE=1` produces **Watch Me Sleep.app** with the release
 identifier. CI branch builds use `./notarize.sh --zip-only` to package the Dev
 bundle under the existing versioned zip filename; this mode does not notarize
 or publish it.
@@ -49,6 +49,17 @@ EdDSA key serves every app of the team; `SUPublicEDKey` in `create-app.sh` is
 its public half, and `SURequireSignedFeed` makes the app reject a feed that is
 not signed with it.
 
+## App name and existing installations
+
+The app is now named **Watch Me Sleep**. New downloads contain
+`Watch Me Sleep.app`; release archives use `Watch-Me-Sleep-vX.Y.Z-macOS.zip`.
+The release bundle identifier, update feed and signing keys stay the same.
+Sparkle 2.10 matches a renamed incoming bundle by its identifier
+(`Autoupdate/SUInstaller.m`), so an existing installation can receive it.
+The bundled Sparkle uses the host's existing installation path, so updating
+an older installation can leave the old `.app` folder name on disk even
+though the new name appears inside the app.
+
 ## Bundle identifier
 
 `com.wiltodelta.watchmesleep` is registered as an explicit App ID for team
@@ -60,6 +71,6 @@ keyed to it.
 ```bash
 gh release download vX.Y.Z -p "*.zip" -D /tmp/asset-check && \
   ditto -x -k /tmp/asset-check/*.zip /tmp/asset-check/app && \
-  spctl -a -vv "/tmp/asset-check/app/Watch Me While I Fall Asleep.app" && \
-  xcrun stapler validate "/tmp/asset-check/app/Watch Me While I Fall Asleep.app"
+  spctl -a -vv "/tmp/asset-check/app/Watch Me Sleep.app" && \
+  xcrun stapler validate "/tmp/asset-check/app/Watch Me Sleep.app"
 ```

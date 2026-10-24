@@ -1,4 +1,4 @@
-name: Build Watch Me While I Fall Asleep App
+name: Build Watch Me Sleep App
 
 on:
   push:
@@ -128,7 +128,7 @@ jobs:
       run: |
         FEED="$RUNNER_TEMP/appcast"
         mkdir -p "$FEED"
-        ZIP=$(ls Watch-Me-While-I-Fall-Asleep-v*-macOS.zip)
+        ZIP=$(ls Watch-Me-Sleep-v*-macOS.zip)
         cp "$ZIP" "$FEED/"
         # Release notes are the annotated tag's body; refuse a lightweight tag or
         # an empty body rather than publish a release without notes.
@@ -154,8 +154,8 @@ jobs:
     - name: Upload App Bundle
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
       with:
-        name: Watch-Me-While-I-Fall-Asleep-macOS
-        path: Watch-Me-While-I-Fall-Asleep-v*-macOS.zip
+        name: Watch-Me-Sleep-macOS
+        path: Watch-Me-Sleep-v*-macOS.zip
         retention-days: 30
     
     - name: Create Release (on tag)
@@ -163,7 +163,7 @@ jobs:
       uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
       with:
         files: |
-          Watch-Me-While-I-Fall-Asleep-v*-macOS.zip
+          Watch-Me-Sleep-v*-macOS.zip
           appcast.xml
         name: ${{ env.RELEASE_TITLE }}
         body_path: release-notes.md

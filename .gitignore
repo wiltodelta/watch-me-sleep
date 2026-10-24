@@ -5,7 +5,7 @@
 *.xcworkspace/
 
 # Build artifacts
-Watch Me While I Fall Asleep.app/
+Watch Me Sleep.app/
 *.app/
 .DS_Store
 
@@ -28,4 +28,7 @@ TemporaryAssets.xcassets/
 /opencode.jsonc
 
 # Release zips built by notarize.sh
+/Watch-Me-Sleep-v*-macOS.zip
+
+# Archives produced before the app was renamed
 /Watch-Me-While-I-Fall-Asleep-v*-macOS.zip

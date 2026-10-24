@@ -1,4 +1,4 @@
-# Using Watch Me While I Fall Asleep
+# Using Watch Me Sleep
 
 The app lives in the menu bar. Click the moon for the main panel, or
 right-click it for timer presets, Settings and update checks.
@@ -67,7 +67,7 @@ volume changes are preserved.
 
 Right-click the icon for a quick menu that shows what the night watch is doing,
 starts a timer with the panel's presets, stops the current one, opens Settings,
-or checks for updates. **Help > Watch Me While I Fall Asleep Help** opens the [README](../README.md).
+or checks for updates. **Help > Watch Me Sleep Help** opens the [README](../README.md).
 
 ## Settings
 
@@ -98,9 +98,9 @@ Automatic checks can be turned off in Settings.
 
 ## Troubleshooting
 
-- **"Watch Me While I Fall Asleep is damaged and can't be opened":** releases
+- **"Watch Me Sleep is damaged and can't be opened":** releases
   before 2.1.0 were not notarized. Update to the latest release, or clear the
-  quarantine flag with `xattr -cr "/Applications/Watch Me While I Fall Asleep.app"`.
+  quarantine flag with `xattr -cr "/Applications/Watch Me Sleep.app"`.
 - **Only the display turned off:** work was holding the Mac awake, and the app
   leaves it running. See what with `pmset -g assertions`.
 - **The camera never looks:** enable the app under System Settings > Privacy &
@@ -118,7 +118,7 @@ Automatic checks can be turned off in Settings.
 
 ## Uninstall
 
-Quit the app from its panel, then move **Watch Me While I Fall Asleep.app** to
+Quit the app from its panel, then move **Watch Me Sleep.app** to
 the Trash. To remove its settings too:
 
 ```bash

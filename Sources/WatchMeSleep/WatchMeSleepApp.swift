@@ -23,7 +23,7 @@ struct WatchMeSleepApp: App {
             // The default item opened "Help isn’t available" (UX-09); the
             // README is the app's documentation.
             CommandGroup(replacing: .help) {
-                Button("Watch Me While I Fall Asleep Help") {
+                Button("Watch Me Sleep Help") {
                     if let url = URL(string: "https://github.com/wiltodelta/watch-me-sleep#readme") {
                         NSWorkspace.shared.open(url)
                     }
@@ -84,7 +84,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             button.target = self
             // VoiceOver reads the image-only button by this label (HIG: provide an
             // accessibility label for every icon); the countdown is its value.
-            button.setAccessibilityLabel("Watch Me While I Fall Asleep")
+            button.setAccessibilityLabel("Watch Me Sleep")
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
             addShowMenuAction(to: button)
         }
@@ -263,7 +263,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(update)
 
         // The standard selector lets macOS 26+ give the item its system icon.
-        menu.addItem(NSMenuItem(title: "Quit Watch Me While I Fall Asleep",
+        menu.addItem(NSMenuItem(title: "Quit Watch Me Sleep",
                                 action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         // Keep images in the timer and app-action groups, leaving the status
         // row and separators to the system's default visibility.
@@ -323,7 +323,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if settingsWindow == nil {
             let hosting = NSHostingController(rootView: SettingsView())
             let window = NSWindow(contentViewController: hosting)
-            window.title = "Watch Me While I Fall Asleep Settings"
+            window.title = "Watch Me Sleep Settings"
             window.styleMask = [.titled, .closable]
             window.isReleasedWhenClosed = false
             window.delegate = self

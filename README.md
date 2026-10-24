@@ -1,4 +1,4 @@
-# Watch Me While I Fall Asleep
+# Watch Me Sleep
 
 **Let your Mac fall asleep when you do.**
 
@@ -88,7 +88,7 @@ on macOS 26 and later.
 
 1. [Download the latest release](https://github.com/wiltodelta/watch-me-sleep/releases/latest)
    and unzip it.
-2. Move **Watch Me While I Fall Asleep.app** to **Applications** and open it.
+2. Move **Watch Me Sleep.app** to **Applications** and open it.
 3. Click the moon in the menu bar and open **Settings…**. Choose your bedtime
    and whether to use the camera. Turn on **Launch at login** if you want the
    app ready each night.
@@ -133,10 +133,10 @@ and Apple's frameworks, with Sparkle as its only external dependency.
 git clone https://github.com/wiltodelta/watch-me-sleep.git
 cd watch-me-sleep
 ./create-app.sh
-open "Watch Me While I Fall Asleep Dev.app"
+open "Watch Me Sleep Dev.app"
 ```
 
-Local builds are named **Watch Me While I Fall Asleep Dev**, with a separate
+Local builds are named **Watch Me Sleep Dev**, with a separate
 development bundle identifier and settings.
 The build script signs with the team's Developer ID when available and
 otherwise uses an ad hoc signature.

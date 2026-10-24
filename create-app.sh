@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build Watch Me While I Fall Asleep and assemble its signed .app bundle.
+# Build Watch Me Sleep and assemble its signed .app bundle.
 #   ./create-app.sh              everyday build (Developer ID when available, no timestamp)
 #   RELEASE=1 ./create-app.sh    release build: Developer ID with a secure timestamp
 # Only a release build is com.wiltodelta.watchmesleep. Every other build is
@@ -9,7 +9,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-APP_NAME="Watch Me While I Fall Asleep"
+APP_NAME="Watch Me Sleep"
 if [[ "${RELEASE:-}" == 1 ]]; then
     BUNDLE_ID="com.wiltodelta.watchmesleep"; UPDATE_CHECKS="true"
 else
@@ -99,7 +99,7 @@ cat > "$APP_DIR/Contents/Info.plist" << EOF
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Watch Me While I Fall Asleep uses your camera to detect when you fall asleep by tracking your eye closure.</string>
+	<string>Watch Me Sleep uses your camera to detect when you fall asleep by tracking your eye closure.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>SUFeedURL</key>

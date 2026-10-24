@@ -1,7 +1,7 @@
 # README screenshots
 
 Run `./capture-screenshots.sh` from an unlocked macOS session. It builds and
-signs `Watch Me While I Fall Asleep Dev.app`, then captures the idle panel,
+signs `Watch Me Sleep Dev.app`, then captures the idle panel,
 running timer and Settings in light and dark appearances. Use `light` or `dark`
 as an argument to regenerate one appearance. The terminal needs Accessibility and Screen
 Recording access. Leave the Mac alone while the script opens windows.

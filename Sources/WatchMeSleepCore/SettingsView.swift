@@ -143,7 +143,7 @@ public struct SettingsView: View {
             Text("Startup")
         } footer: {
             Text(launchManager.errorMessage.map { "Couldn't change this: \($0)" }
-                 ?? "Start Watch Me While I Fall Asleep automatically when you log in to your Mac.")
+                 ?? "Start Watch Me Sleep automatically when you log in to your Mac.")
                 .foregroundStyle(Color.secondaryText)
         }
     }

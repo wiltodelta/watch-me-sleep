@@ -57,7 +57,7 @@ public final class LaunchAtLoginManager: ObservableObject {
             // is thrown, so say where to allow it.
             awaitingApproval = enabled && service.status == .requiresApproval
             errorMessage = awaitingApproval
-                ? "allow Watch Me While I Fall Asleep in System Settings > General > Login Items."
+                ? "allow Watch Me Sleep in System Settings > General > Login Items."
                 : nil
         } catch {
             awaitingApproval = false

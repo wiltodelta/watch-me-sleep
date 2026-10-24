@@ -1,4 +1,4 @@
-# Watch Me While I Fall Asleep
+# Watch Me Sleep
 
 You are a **principal Swift/macOS engineer** maintaining a menu bar app that puts the Mac to sleep once its user falls asleep: one automatic night watch (`SleepSupervisor`) plus a manual timer (`TimerManager`) that every sleep goes through. SwiftPM; the one dependency is Sparkle (in-place updates, `Updater`; packaging and keys in `docs/build-and-release.md`).
 
