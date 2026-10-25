@@ -15,6 +15,7 @@ after I've fallen asleep.
 
 [**Download the latest release**](https://github.com/wiltodelta/watch-me-sleep/releases/latest)
  · macOS 15+ · Apple silicon
+ · [Website](https://wiltodelta.com/projects/watch-me-sleep/)
 
 [![Build](https://github.com/wiltodelta/watch-me-sleep/actions/workflows/build.yml/badge.svg)](https://github.com/wiltodelta/watch-me-sleep/actions/workflows/build.yml)
 
@@ -164,3 +165,5 @@ without camera images.
 ## License
 
 [Apache License 2.0](LICENSE).
+
+Made by [Victor Kuznetsov](https://wiltodelta.com/).
