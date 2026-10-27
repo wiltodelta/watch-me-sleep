@@ -80,14 +80,12 @@ public final class SleepSupervisor: ObservableObject {
     /// One stretch of not using the Mac; starts over when someone is back.
     struct Stretch {
         var nextLook: Date = .distantPast
-        /// Unclear looks so far; a camera that cannot be used counts as the
-        /// maximum, so both ways of not trusting it are one rule.
-        var unclearLooks = 0
+        /// A failed look disables camera decisions until the next idle stretch.
+        var cameraUnavailable = false
         /// Already acted in this stretch.
         var acted = false
-        /// The camera has seen a face in this stretch, so a later look that
-        /// finds none means the person left or turned away to sleep. Until
-        /// then the camera may just not cover them (a TV, a far laptop).
+        /// Whether the camera has seen eyes in this stretch, for diagnostics.
+        /// Losing the face later cannot distinguish sleep from turning away.
         var faceSeen = false
     }
 
@@ -253,7 +251,7 @@ public final class SleepSupervisor: ObservableObject {
             idle: idle,
             mediaPlaying: holders.mediaPlaying,
             cameraUsable: cameraUsable,
-            unclearLooks: stretch.unclearLooks,
+            cameraUnavailable: stretch.cameraUnavailable,
             lookDue: now() >= stretch.nextLook
         )
 
@@ -318,33 +316,29 @@ public final class SleepSupervisor: ObservableObject {
         if verdict == .asleep || verdict == .awake {
             stretch.faceSeen = true
         }
-        // Never seen in this stretch: the camera may not cover the viewer.
-        let verdict = verdict == .absent && !stretch.faceSeen ? .unclear : verdict
+        // A completed look without evidence of wakefulness starts a timer.
+        // This includes darkness and an absent face, even before seeing the
+        // viewer. A failed or incomplete look remains unavailable.
         Journal.shared.record("look.result", context(["verdict": String(describing: verdict)]))
-        let recheck = recheckDate
         switch verdict {
-        case .asleep, .absent:
+        case .asleep, .absent, .unclear:
             arm(for: NightWatchPolicy.cameraTimer, reason: "camera: \(verdict)", looksAgain: true)
         case .awake:
-            stretch.nextLook = recheck
-        case .unclear:
-            stretch.unclearLooks += 1
-            stretch.nextLook = recheck
+            stretch.nextLook = recheckDate
         case .unavailable:
-            stretch.unclearLooks = NightWatchPolicy.maxUnclearLooks
+            stretch.cameraUnavailable = true
         }
         tick()
     }
 
-    /// When to look again after open eyes or an unclear picture.
+    /// When to look again after open eyes.
     private var recheckDate: Date {
         now().addingTimeInterval(NightWatchPolicy.recheckInterval)
     }
 
     /// - Parameter looksAgain: the camera started this timer, so it looks once
     ///   more in the final minute. Not for a quiet Mac, which never turns the
-    ///   camera on, and not for "still watching?", which asks because open eyes
-    ///   cannot be trusted that late.
+    ///   camera on, or for "still watching?", the fallback without a usable camera.
     /// - Parameter quiet: the quiet Mac's timer, which media starting overrules.
     private func arm(for duration: TimeInterval, reason: String, looksAgain: Bool = false, quiet: Bool = false) {
         log.info("Starting a \(duration / 60, privacy: .public)-minute timer: \(reason, privacy: .public)")
@@ -398,7 +392,7 @@ public final class SleepSupervisor: ObservableObject {
             "idle": Int(lastIdle),
             "media": holders.mediaPlaying, "video": holders.videoPlaying, "work": holders.work,
             "nap": isWatchingNow, "cameraUsable": cameraUsable, "faceSeen": stretch.faceSeen,
-            "unclearLooks": stretch.unclearLooks, "acted": stretch.acted
+            "cameraUnavailable": stretch.cameraUnavailable, "acted": stretch.acted
         ]) { own, _ in own }
     }
 

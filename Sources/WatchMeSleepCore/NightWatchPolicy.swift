@@ -10,7 +10,7 @@ enum NightWatchPolicy {
     // the camera looks often: a look at open eyes ends in about 3 seconds.
     /// Media playing and no input this long: the camera takes its first look.
     static let firstLookIdle: TimeInterval = 5 * 60
-    /// Wait before looking again after open eyes or an unclear picture.
+    /// Wait before looking again after open eyes.
     static let recheckInterval: TimeInterval = 5 * 60
     /// Nothing playing and no input this long means nobody is there. No camera
     /// here: with nothing playing, nobody is watching anything, and macOS would
@@ -20,11 +20,6 @@ enum NightWatchPolicy {
     /// watching?". Long enough for a whole film; Netflix asks after 90 minutes,
     /// but counts episodes.
     static let stillWatchingIdle: TimeInterval = 2 * 60 * 60
-    /// Even with the camera seeing open eyes, ask after this long: some people
-    /// sleep with their eyes partly open, and the final minute spares anyone awake.
-    static let askAnywayIdle: TimeInterval = 3 * 60 * 60
-    /// Unclear looks in one idle stretch before the camera stops being trusted.
-    static let maxUnclearLooks = 2
     /// Timer started once the camera sees closed eyes or nobody: short, because
     /// its final minute looks again and open eyes stop it.
     static let cameraTimer: TimeInterval = 5 * 60
@@ -45,12 +40,12 @@ enum NightWatchPolicy {
         var idle: TimeInterval
         var mediaPlaying: Bool
         var cameraUsable: Bool
-        var unclearLooks: Int
+        var cameraUnavailable: Bool
         /// The recheck interval since the last look has passed.
         var lookDue: Bool
 
-        /// The camera can answer: usable, and not unclear too often this stretch.
-        var cameraTrusted: Bool { cameraUsable && unclearLooks < maxUnclearLooks }
+        /// The camera can answer: usable, with no unavailable look this stretch.
+        var cameraTrusted: Bool { cameraUsable && !cameraUnavailable }
 
         /// The camera answers only the one unclear case: something plays and
         /// nobody touches the Mac. Watching, or asleep in front of it?
@@ -58,9 +53,6 @@ enum NightWatchPolicy {
     }
 
     static func decide(_ input: Input) -> Decision {
-        if input.idle >= askAnywayIdle {
-            return .askStillWatching
-        }
         if input.cameraDecides {
             return input.idle >= firstLookIdle && input.lookDue ? .look : .wait
         }

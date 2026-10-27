@@ -36,7 +36,7 @@ the names of processes holding the Mac awake.
 | `look.skipped` | A final-minute look could not run | `looking` (another look was running) plus context |
 | `camera.look` | A look ends, measured | `verdict`, `frames`, `seconds`, `faceSeconds`, `openSeconds`, `darkSeconds`, `meanLuma` |
 | `camera.cancel` | A pending look is discarded and its camera ownership released; an open preview may keep the session running | none |
-| `look.result` | The night watch reads the verdict | `verdict` as used (nobody there before any face reads `unclear`) plus context |
+| `look.result` | The night watch reads the verdict | `verdict` as used (`asleep`, `absent`, and `unclear` start a timer) plus context |
 | `look.ignored` | Input, a timer, settings or the watch window made the answer stale | `verdict` and `timerRunning` for decision looks, `kind` for final-minute looks, plus context |
 | `arm` | The night watch starts a timer | `minutes`, `reason`, `looksAgain` plus context |
 | `quietTimer.overruled` | Media started during the quiet Mac's timer | context |
@@ -53,7 +53,7 @@ the names of processes holding the Mac awake.
 
 Context, on night watch events: `idle` (seconds without input at the latest
 poll), `media`, `video`, `work`, `nap`, `cameraUsable`, `faceSeen`,
-`unclearLooks`, `acted`.
+`cameraUnavailable`, `acted`.
 
 For `camera.look`, `unavailable` also covers a timeout with some frames but
 less than the full observation duration. Frame stalls do not count as observed
@@ -65,7 +65,7 @@ time and cannot produce an `absent` verdict.
 J=~/Library/Logs/WatchMeSleep/journal.jsonl
 # Everything since 9 PM yesterday, one line each
 jq -c 'select(.t >= "2026-10-08T21:00")' "$J"
-# The camera's numbers, to calibrate the darkness threshold (PresenceCheck.darkLuma)
+# The camera's lighting measurements (diagnostic only)
 jq -c 'select(.event == "camera.look") | {t, verdict, meanLuma, faceSeconds, darkSeconds}' "$J"
 # How each night ended
 jq -c 'select(.event | startswith("sleep") or . == "timer.stop" or . == "system")' "$J"
@@ -77,6 +77,13 @@ jq -c 'select(.event | startswith("sleep") or . == "timer.stop" or . == "system"
   sleep. An `asleep` verdict followed by input or open eyes shows that the
   timer was canceled, but cannot distinguish a detector error from waking up.
   Photo benchmarks do not measure accuracy over real nights.
+- Any completed decision look without evidence of wakefulness (`asleep`,
+  `absent`, or `unclear`) starts a camera timer, including darkness and a
+  hidden face. A previously seen face is not required. `unavailable` means
+  there was no complete observation and uses the inactivity fallback instead.
+  Open eyes in the final minute or input cancel the timer; other completed
+  verdicts let it finish. An unavailable final-minute look also leaves an
+  already armed timer running. `faceSeen` is diagnostic only.
 - `sleep` means the requested command succeeded. Read `command`:
   `displaysleepnow` turns off the display and leaves the system running.
   Only a subsequent `system` event with `what: "will sleep"` confirms a

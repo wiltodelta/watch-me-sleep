@@ -36,7 +36,9 @@ schedule, or click **Watch Now for a Nap** to use it outside those hours.
 
 When media keeps your Mac awake and you haven't touched it for five minutes,
 the optional camera takes a short look. Closed eyes start a **five-minute
-sleep timer**. If your eyes are open, it checks again later. A timer started
+sleep timer**. A full check without evidence of wakefulness also starts one,
+including darkness or a hidden face, even if no face was seen earlier.
+If your eyes are open, it checks again later, even after hours without input. A timer started
 by the camera checks once more in its final minute, and open eyes cancel it.
 
 You can use the night watch without a camera. A quiet Mac gets a timer after
@@ -116,9 +118,10 @@ Frames are analyzed locally with Apple's Vision and Core Image frameworks.
 Automatic camera checks run only during bedtime or an active nap. The
 Settings preview runs only while you show it.
 
-A dark, incomplete or stalled camera check isn't treated as proof that you're
-asleep. An empty frame counts only after the camera has seen a face during the same
-stretch without input. Detection can still be imperfect; the
+An incomplete or stalled camera check cannot start a camera timer. A completed
+check without evidence of wakefulness can, including darkness, a hidden face,
+or inconclusive eye readings. Open eyes in the final minute or input cancel
+it. Detection can still be imperfect; the
 [eye-detection notes](docs/eye-detection.md) explain the method, measurements
 and limitations.
 

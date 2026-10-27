@@ -98,6 +98,6 @@ final class SleepSupervisorCancellationTests: SleepSupervisorTestCase {
 
         XCTAssertFalse(timer.isTimerActive)
         XCTAssertFalse(slept)
-        XCTAssertEqual(supervisor.stretch.unclearLooks, NightWatchPolicy.maxUnclearLooks)
+        XCTAssertTrue(supervisor.stretch.cameraUnavailable)
     }
 }

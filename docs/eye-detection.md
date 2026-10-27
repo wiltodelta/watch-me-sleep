@@ -46,9 +46,10 @@ Caveats:
 - Only 8 closed-eye photographs: the sample says nothing went wrong, not how
   often it would. Of the photos of sleeping people found, most showed a face
   neither detector could find (lying turned away, covered); those read as no
-  face, which the night watch treats like an empty chair once it has seen a
-  face in the same stretch, so they still lead to sleep; a look that never
-  saw a face counts as unclear instead.
+  face. A completed look without evidence of wakefulness starts a timer,
+  including darkness, no face, or inconclusive eye readings. No previously
+  seen face is required. It cannot distinguish this from turning away while awake; open
+  eyes in the final minute or input cancel the timer.
 - Stills, not video: the darkness and rotation are simulated.
 - Cost: on a 192 px frame the blink classifier takes about 61 ms and Vision
   32 ms. The classifier runs only where its answer can matter: when Vision

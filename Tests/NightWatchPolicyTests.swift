@@ -8,10 +8,10 @@ final class NightWatchPolicyTests: XCTestCase {
 
     private func decide(
         idleMinutes: Double, media: Bool = true, camera: Bool = true,
-        unclear: Int = 0, nextLook: Date = .distantPast
+        unavailable: Bool = false, nextLook: Date = .distantPast
     ) -> Policy.Decision {
         Policy.decide(Policy.Input(idle: idleMinutes * 60, mediaPlaying: media, cameraUsable: camera,
-                                   unclearLooks: unclear, lookDue: now >= nextLook))
+                                   cameraUnavailable: unavailable, lookDue: now >= nextLook))
     }
 
     func testCameraLooksAfterFiveMinutesOfMedia() {
@@ -38,14 +38,15 @@ final class NightWatchPolicyTests: XCTestCase {
         XCTAssertEqual(decide(idleMinutes: 120, camera: false), .askStillWatching)
     }
 
-    func testUnclearLooksFallBackToTheNoCameraRules() {
-        XCTAssertEqual(decide(idleMinutes: 30, unclear: 2), .wait)
-        XCTAssertEqual(decide(idleMinutes: 120, unclear: 2), .askStillWatching)
-        XCTAssertEqual(decide(idleMinutes: 30, unclear: 1), .look)
+    func testAnUnavailableLookFallsBackToTheNoCameraRules() {
+        XCTAssertEqual(decide(idleMinutes: 30, unavailable: true), .wait)
+        XCTAssertEqual(decide(idleMinutes: 120, unavailable: true), .askStillWatching)
+        XCTAssertEqual(decide(idleMinutes: 30, unavailable: false), .look)
     }
 
-    func testAfterThreeHoursItAsksAnyway() {
-        XCTAssertEqual(decide(idleMinutes: 180, nextLook: .distantFuture), .askStillWatching,
-                       "Open eyes cannot hold the Mac up all night")
+    func testOpenEyesStillUseTheRecheckIntervalAfterThreeHours() {
+        XCTAssertEqual(decide(idleMinutes: 180, nextLook: .distantFuture), .wait)
+        XCTAssertEqual(decide(idleMinutes: 185), .look)
+        XCTAssertEqual(decide(idleMinutes: 180, camera: false), .askStillWatching)
     }
 }

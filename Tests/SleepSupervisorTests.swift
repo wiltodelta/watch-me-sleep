@@ -189,21 +189,46 @@ final class SleepSupervisorTests: SleepSupervisorTestCase {
         XCTAssertEqual(timer.totalTime, 5 * 60, accuracy: 1)
     }
 
-    func testNobodyThereAfterAFaceStartsAFiveMinuteTimer() {
+    func testTurningAwayAfterSeeingAFaceStartsAFiveMinuteTimer() {
         idleFor(minutes: 10)
         answer(.awake)
-        clock = clock.addingTimeInterval(5 * 60)
+        clock += 5 * 60
         idleFor(minutes: 15)
         answer(.absent)
-        XCTAssertEqual(timer.totalTime, 5 * 60, accuracy: 1, "Seen, then gone: left, or asleep turned away")
+        XCTAssertTrue(timer.isTimerActive)
+        XCTAssertEqual(timer.totalTime, 5 * 60, accuracy: 1)
     }
 
-    func testNobodyEverSeenIsNotEvidence() {
-        // A film on a TV, a laptop far away: the camera may not cover the viewer.
+    func testAbsenceWithoutAPreviouslySeenFaceCanEndInSleep() {
         idleFor(minutes: 10)
         answer(.absent)
+        XCTAssertTrue(timer.isTimerActive)
+        XCTAssertEqual(timer.totalTime, 5 * 60, accuracy: 1)
+
+        clock += 4 * 60
+        idle += 4 * 60
+        timer.tick()
+        XCTAssertEqual(looks, 2)
+        answer(.absent)
+        clock += 60
+        idle += 60
+        timer.tick()
+        XCTAssertTrue(slept)
+    }
+
+    func testOpenEyesCancelATimerStartedByAbsence() {
+        idleFor(minutes: 10)
+        answer(.absent)
+        clock += 4 * 60
+        idle += 4 * 60
+        timer.tick()
+        XCTAssertEqual(looks, 2)
+        answer(.awake)
         XCTAssertFalse(timer.isTimerActive)
-        XCTAssertEqual(supervisor.stretch.unclearLooks, 1)
+        clock += 60
+        idle += 60
+        timer.tick()
+        XCTAssertFalse(slept)
     }
 
     func testOpenEyesWaitFiveMinutes() {
@@ -324,19 +349,23 @@ final class SleepSupervisorTests: SleepSupervisorTestCase {
         XCTAssertEqual(looks, 0, "A quiet Mac never turns the camera on")
     }
 
-    func testStillWatchingAfterThreeHoursIsNotAnsweredByOpenEyes() {
-        // The camera keeps seeing open eyes, so the night watch asks anyway at
-        // three hours; open eyes cannot answer that question, only input can.
+    func testOpenEyesKeepTheMacAwakeAfterThreeHoursWithoutInput() {
         idleFor(minutes: 180)
-        XCTAssertEqual(timer.totalTime, TimerManager.finalPhaseDuration, accuracy: 1)
-        timer.tick()
-        XCTAssertTrue(timer.isInFinalPhase)
-        XCTAssertEqual(looks, 0)
+        XCTAssertEqual(looks, 1)
+        answer(.awake)
+        XCTAssertFalse(timer.isTimerActive)
 
-        clock = clock.addingTimeInterval(60)
-        idle = 181 * 60
-        timer.tick()
-        XCTAssertTrue(slept)
+        clock += 60
+        idleFor(minutes: 181)
+        XCTAssertFalse(timer.isTimerActive)
+        XCTAssertFalse(slept)
+        XCTAssertEqual(looks, 1, "Wait for the next camera look")
+
+        clock += 4 * 60
+        idleFor(minutes: 185)
+        XCTAssertEqual(looks, 2)
+        answer(.awake)
+        XCTAssertFalse(timer.isTimerActive)
     }
 
     func testWatchNowWorksOutsideBedtime() {
@@ -378,7 +407,7 @@ final class SleepSupervisorTests: SleepSupervisorTestCase {
         idleFor(minutes: 200)
         XCTAssertEqual(supervisor.status, .keepingSound)
         XCTAssertEqual(looks, 0)
-        XCTAssertFalse(timer.isTimerActive, "Not even the three-hour question")
+        XCTAssertFalse(timer.isTimerActive, "The sound choice takes precedence over inactivity")
     }
 
     func testAFilmIsWatchedEvenWhenSoundIsKept() {
@@ -416,15 +445,26 @@ final class SleepSupervisorTests: SleepSupervisorTestCase {
         XCTAssertFalse(timer.isTimerActive)
     }
 
-    func testADarkLookDoesNotCountAsASeenFace() {
-        // A dark scene during the first look, then a lit frame with nobody:
-        // the camera still never saw the viewer.
+    func testAFullDarkLookStartsATimerWithoutAPreviouslySeenFace() {
         idleFor(minutes: 10)
-        answer(.unclear)
-        clock = clock.addingTimeInterval(5 * 60)
-        idleFor(minutes: 15)
-        answer(.absent)
-        XCTAssertFalse(timer.isTimerActive)
+        var check = PresenceCheck()
+        for index in 0...300 {
+            _ = check.record(eyes: nil, at: Double(index) / 10, luma: 0.01)
+        }
+        answer(check.finalVerdict)
+        XCTAssertTrue(timer.isTimerActive)
+        XCTAssertEqual(timer.totalTime, 5 * 60, accuracy: 1)
+    }
+
+    func testAFullLookWithoutEnoughOpenEyesStartsATimer() {
+        idleFor(minutes: 10)
+        var check = PresenceCheck()
+        for index in 0...300 {
+            _ = check.record(eyes: index < 60 ? .closed : nil, at: Double(index) / 10, luma: 0.5)
+        }
+        answer(check.finalVerdict)
+        XCTAssertTrue(timer.isTimerActive)
+        XCTAssertEqual(timer.totalTime, 5 * 60, accuracy: 1)
     }
 
     func testANightLeavesItsDecisionsInTheJournal() throws {

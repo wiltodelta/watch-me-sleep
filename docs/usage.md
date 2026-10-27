@@ -18,22 +18,23 @@ During those hours, once you stop using the Mac:
 
 - Nothing playing, nobody at the keyboard: after 20 minutes a 15-minute timer
   starts. The camera stays off: with nothing playing, nobody is watching.
-- Something playing: after 5 minutes the camera looks. Closed eyes start a
-  5-minute timer, whose final minute looks once more; so does nobody there,
-  once the camera has seen you in this stretch. Open eyes mean you are
-  watching, and it looks again in 5 minutes. If the picture stays unclear
-  (too dark, a face turned away, nobody ever seen), or there is no camera, it
-  asks after two hours whether you are still watching.
+- Something playing: after 5 minutes the camera looks. Closed eyes, an
+  absent face, darkness, or inconclusive eye readings in a completed look
+  start a 5-minute timer. No previously seen face is required. The final
+  minute looks again, and open eyes cancel the timer. Open eyes in a decision
+  look mean it waits and looks again in 5 minutes. Without a usable camera
+  or a complete observation, it asks after two hours without input whether
+  you are still watching.
 - Only sound playing, and you chose to keep it: nothing happens; the display
   turns off by itself and the sound plays on.
 - Something starts playing during the quiet Mac's timer: the timer stops and
   the camera decides instead.
-- After three hours without input it asks anyway: some people sleep with their
-  eyes partly open.
+- Open eyes keep the camera on its normal recheck schedule, even after hours
+  without input. Inactivity alone never overrides a usable camera.
 - It acts once per stretch of not using the Mac, and starts over when you are
   back. Its timer stops as soon as you are: a touch of the mouse or keyboard
   at any time, or open eyes in the final minute of a timer the camera started.
-  A quiet Mac's timer and the three-hour question never use the camera at the
+  A quiet Mac's timer and the no-camera question never use the camera at the
   end, so only you can stop them.
 
 For a nap outside those hours, click **Watch Now for a Nap** in the panel. The

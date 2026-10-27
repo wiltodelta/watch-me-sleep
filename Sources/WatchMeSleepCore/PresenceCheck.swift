@@ -3,7 +3,8 @@ import os
 
 /// A short camera look the night watch (`SleepSupervisor`) takes when it is
 /// unclear whether anyone is still watching, so a film someone is awake for is
-/// not cut off, while a dark room or an empty chair still counts as bedtime.
+/// not cut off. Completed looks without evidence of wakefulness can start a
+/// timer, including darkness and an absent face. Unavailable looks cannot.
 ///
 /// Pure and frame-driven: `CameraWatcher` feeds it one value per video frame
 /// on its video queue, which serializes all access.
