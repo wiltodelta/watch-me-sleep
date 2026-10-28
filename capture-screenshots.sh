@@ -28,7 +28,16 @@ stop_app() {
     echo "Development app did not exit; defaults backup retained at $WORK/defaults.plist" >&2
     return 1
 }
+# Keep what a failed run saw (the screen, the app's windows, its AX geometry)
+# before the app quits; diagnose from that folder rather than a second run.
+save_evidence() {
+    [ -n "$PID" ] || return 0
+    uv run -q "${MACAUDIT:-$HOME/Documents/GitHub/claude-config/skills/ui-audit-macos/scripts/macaudit.py}" \
+        evidence --pid "$PID" --out "${TMPDIR:-/tmp}/watch-me-sleep-capture-failures" --label capture >/dev/null || true
+}
 cleanup() {
+    local status=$?
+    [ "$status" = 0 ] || save_evidence
     # Terminating our process disarms its timer and closes its windows.
     stop_app || return 1
     if [ -n "$BACKDROP_PID" ]; then kill "$BACKDROP_PID" 2>/dev/null || true; wait "$BACKDROP_PID" 2>/dev/null || true; fi

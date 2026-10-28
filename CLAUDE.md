@@ -8,6 +8,7 @@ Shared rules for our macOS apps: `~/Documents/GitHub/claude-config/docs/macos-ap
 
 - `./create-app.sh` builds and signs the bundle; its icon layers come from `scripts/draw-icon.py` (`icon.json` edited in Icon Composer). The signature carries the camera entitlement, without which the hardened runtime blocks the camera; the TCC grant the stable signature preserves is Camera. A local release build is `RELEASE=1 ./create-app.sh && ./notarize.sh` (`docs/build-and-release.md`).
 - `./capture-screenshots.sh` rebuilds and regenerates light/dark `screenshots/` with the camera off; it needs Accessibility and Screen Recording for the terminal and an unlocked, idle Mac, and restores the development defaults on exit. Recipe: `docs/screenshots.md`.
+- A failed capture saves the screen, the app's windows and AX geometry under `$TMPDIR/watch-me-sleep-capture-failures/`: diagnose from that, not a rerun.
 
 ## Test and lint
 
