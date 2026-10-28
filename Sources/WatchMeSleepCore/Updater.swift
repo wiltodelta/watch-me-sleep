@@ -13,11 +13,14 @@ import Sparkle
 /// menu or panel instead, and Sparkle's window comes forward only when the user
 /// chooses it or checks by hand.
 @MainActor
-public final class Updater: NSObject, ObservableObject, SPUStandardUserDriverDelegate {
+public final class Updater: NSObject, ObservableObject, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {
     public static let shared = Updater()
 
     /// The version a scheduled check found and the user has not acted on yet.
     @Published public private(set) var pendingVersion: String?
+
+    /// Set just before Sparkle quits the app to relaunch the installed update.
+    public private(set) var relaunchingForUpdate = false
 
     private var controller: SPUStandardUpdaterController!
 
@@ -25,7 +28,7 @@ public final class Updater: NSObject, ObservableObject, SPUStandardUserDriverDel
 
     override private init() {
         super.init()
-        controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil,
+        controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self,
                                                   userDriverDelegate: self)
     }
 
@@ -47,6 +50,12 @@ public final class Updater: NSObject, ObservableObject, SPUStandardUserDriverDel
     public func checkForUpdates() {
         NSApp.activate()
         controller.checkForUpdates(nil)
+    }
+
+    // MARK: - SPUUpdaterDelegate
+
+    public nonisolated func updaterWillRelaunchApplication(_ updater: SPUUpdater) {
+        MainActor.assumeIsolated { relaunchingForUpdate = true }
     }
 
     // MARK: - SPUStandardUserDriverDelegate
