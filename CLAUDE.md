@@ -38,3 +38,5 @@ Shared rules for our macOS apps: `~/Documents/GitHub/claude-config/docs/macos-ap
 ## Personal website
 
 The personal website (`wiltodelta/wiltodelta-app`, page `/projects/watch-me-sleep/`) imports `screenshots/manual-timer.png`, `screenshots/manual-timer-dark.png` and the README section "How it works" from each stable release at its tag. Regenerate those screenshots before tagging a release whose UI changed, never rename or remove them or the section without updating that repository in the same change, and after publishing follow its `docs/product-updates.md`, "What product repositories owe the site".
+
+Website copy highlights only the main use cases and benefits; follow the site's `docs/product-updates.md`, "Visitor copy selection". Routine interface conveniences belong in documentation or release notes, and refreshing screenshots does not require expanding the description.
