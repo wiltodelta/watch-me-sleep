@@ -149,7 +149,9 @@ otherwise uses an ad hoc signature.
   build. Install SwiftLint with `brew install swiftlint` first.
 - `./capture-screenshots.sh` regenerates both screenshot themes with the
   camera off. It needs Accessibility and Screen Recording access and restores
-  the development settings afterward. See the [screenshot recipe](docs/screenshots.md).
+  the development settings afterward. Run it in a separate macOS VM; a physical
+  Mac is refused unless `--host` is explicitly selected for agreed host diagnostics.
+  See the [screenshot recipe](docs/screenshots.md).
 - [Build and release](docs/build-and-release.md) covers signing,
   notarization, tag-driven releases and Sparkle packaging.
 - [UI architecture](docs/ui-architecture.md) describes the native menu bar

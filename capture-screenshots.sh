@@ -7,6 +7,15 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Default to a disposable VM. --host is only for host diagnostics agreed with Victor.
+AUDIT="${MACAUDIT:-$HOME/Documents/GitHub/claude-config/skills/ui-audit-macos/scripts/macaudit.py}"
+if [[ "${1:-}" == --host ]]; then
+    shift
+    uv run -q "$AUDIT" scope --allow-host
+else
+    uv run -q "$AUDIT" scope
+fi
+
 MODE="${1:-all}"
 case "$MODE" in light|dark|all) ;; *) echo "Usage: $0 [light|dark|all]" >&2; exit 2 ;; esac
 APP_NAME="Watch Me Sleep Dev"

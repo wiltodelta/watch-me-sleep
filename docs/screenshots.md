@@ -1,10 +1,12 @@
 # README screenshots
 
-Run `./capture-screenshots.sh` from an unlocked macOS session. It builds and
+Run `./capture-screenshots.sh` inside a separate, unlocked macOS VM. It builds and
 signs `Watch Me Sleep Dev.app`, then captures the idle panel,
 running timer and Settings in light and dark appearances. Use `light` or `dark`
 as an argument to regenerate one appearance. The terminal needs Accessibility and Screen
-Recording access. Leave the Mac alone while the script opens windows.
+Recording access inside the guest. The host remains usable. The script refuses
+a physical Mac by default; `--host` as the first argument is reserved for
+explicitly agreed host diagnostics.
 
 The script refuses to run if a development copy is already open. The installed
 release can remain open: it has a separate bundle identifier. The screenshot
